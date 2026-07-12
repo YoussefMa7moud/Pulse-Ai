@@ -1,0 +1,36 @@
+{
+  "client": {
+    "cp_id": "0000000000000",
+    "product_id": "0000000000000",
+    "client_id": "0000000000000",
+    "client_secret": "PLACEHOLDER",
+    "project_id": "0000000000000",
+    "app_id": "YOUR_APP_ID",
+    "api_key": "PLACEHOLDER",
+    "package_name": "com.example.flutter_application_1"
+  },
+  "service": {
+    "analytics": {
+      "channel_id": "",
+      "collector_url": "https://datacollector-dre.dt.hicloud.com,https://datacollector-dre.dt.dbankcloud.cn",
+      "collector_url_cn": "https://datacollector-dre.dt.hicloud.com,https://datacollector-dre.dt.dbankcloud.cn",
+      "collector_url_global": "https://datacollector-dre.dt.hicloud.com,https://datacollector-dre.dt.dbankcloud.cn",
+      "collector_url_sg": "https://datacollector-sg.dt.hicloud.com,https://datacollector-sg.dt.dbankcloud.cn",
+      "collector_url_ru": "https://datacollector-ru.dt.hicloud.com,https://datacollector-ru.dt.dbankcloud.cn"
+    },
+    "search": {
+      "url": "https://search-dre.cloud.huawei.com"
+    },
+    "ml": {
+      "mlservice_url": "https://ml-api-dre.aicore.huawei.com"
+    },
+    "cloudstorage": {
+      "storage_url": "https://agc-storage-drcn.platform.dbankcloud.cn"
+    }
+  },
+  "region": "CN",
+  "app_info": {
+    "app_id": "YOUR_APP_ID",
+    "package_name": "com.example.flutter_application_1"
+  }
+}
