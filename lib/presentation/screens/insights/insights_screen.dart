@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme.dart';
 import '../../../widgets/glass_container.dart';
 import '../../../widgets/animated_background.dart';
+import '../../../widgets/pulse_loader.dart';
 import '../../../services/ai_service.dart';
 
 class InsightsScreen extends ConsumerWidget {
@@ -18,11 +20,17 @@ class InsightsScreen extends ConsumerWidget {
         child: SafeArea(
           child: CustomScrollView(
             slivers: [
-              const SliverAppBar(
+              SliverAppBar(
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 pinned: true,
-                title: Text('Insights Center', style: TextStyle(fontWeight: FontWeight.bold)),
+                title: const Text('Insights Center', style: TextStyle(fontWeight: FontWeight.bold)),
+                actions: [
+                  IconButton(
+                    icon: Icon(Icons.person_outline, color: PulseTheme.primary),
+                    onPressed: () => context.push('/profile'),
+                  ),
+                ],
               ),
               SliverToBoxAdapter(
                 child: Padding(
@@ -63,7 +71,9 @@ class InsightsScreen extends ConsumerWidget {
                     );
                   },
                   loading: () => const SliverFillRemaining(
-                    child: Center(child: CircularProgressIndicator(color: PulseTheme.accent)),
+                    child: Center(
+                      child: PulseLoadingIndicator(message: 'Analyzing trends...'),
+                    ),
                   ),
                   error: (e, __) => SliverFillRemaining(
                     child: Center(child: Text('Failed to load insights.\n$e', textAlign: TextAlign.center)),
@@ -112,7 +122,7 @@ class _PremiumInsightCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                child: Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: PulseTheme.isDark ? Colors.white : Colors.black87)),
               ),
               Text(date, style: TextStyle(color: PulseTheme.secondary, fontSize: 12)),
             ],
@@ -120,7 +130,7 @@ class _PremiumInsightCard extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             description,
-            style: TextStyle(height: 1.5, fontSize: 15, color: Colors.white.withOpacity(0.9)),
+            style: TextStyle(height: 1.5, fontSize: 15, color: PulseTheme.isDark ? Colors.white.withOpacity(0.9) : Colors.black87),
           ),
         ],
       ),

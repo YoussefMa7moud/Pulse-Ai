@@ -7,6 +7,7 @@ import '../../../widgets/glass_container.dart';
 import '../../../widgets/animated_background.dart';
 import '../../../widgets/score_cards.dart';
 import '../../../services/ai_service.dart';
+import '../../../widgets/pulse_loader.dart';
 
 class RecoveryScreen extends ConsumerWidget {
   const RecoveryScreen({super.key});
@@ -48,7 +49,7 @@ class RecoveryScreen extends ConsumerWidget {
                           color: _getRecoveryColor(score.recoveryScore ?? 0)
                         ),
                       ),
-                      loading: () => const SizedBox(height: 350, child: Center(child: CircularProgressIndicator(color: PulseTheme.recoveryHigh))),
+                      loading: () => const SizedBox(height: 350, child: Center(child: PulseLoadingIndicator(message: 'Calculating recovery...'))),
                       error: (e, _) => Text('Error: $e', style: const TextStyle(color: Colors.red)),
                     ),
                     
@@ -165,7 +166,7 @@ class _BarChartTrend extends StatelessWidget {
               sideTitles: SideTitles(
                 showTitles: true,
                 getTitlesWidget: (double value, TitleMeta meta) {
-                  const style = TextStyle(color: PulseTheme.secondary, fontWeight: FontWeight.bold, fontSize: 12);
+                  final style = TextStyle(color: PulseTheme.secondary, fontWeight: FontWeight.bold, fontSize: 12);
                   String text;
                   switch (value.toInt()) {
                     case 0: text = 'M'; break;

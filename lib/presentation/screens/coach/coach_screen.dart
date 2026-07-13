@@ -8,6 +8,7 @@ import '../../providers/data_providers.dart';
 import '../../../services/ai_service.dart';
 import '../../../widgets/animated_background.dart';
 import '../../../widgets/glass_container.dart';
+import 'package:go_router/go_router.dart';
 
 /// AI Coach screen — every response is grounded in the user's real
 /// health data (injected into every system prompt).
@@ -147,10 +148,10 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
             metricAsync.when(
               data: (m) => Text(
                 'Answers based on your health data',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 11, color: PulseTheme.recoveryHigh),
               ),
-              loading: () => const Text('Loading health data...',
+              loading: () => Text('Loading health data...',
                   style: TextStyle(fontSize: 11, color: PulseTheme.secondary)),
               error: (_, __) => const SizedBox(),
             ),
@@ -158,9 +159,13 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.delete_sweep_outlined, color: PulseTheme.secondary),
+            icon: Icon(Icons.delete_sweep_outlined, color: PulseTheme.secondary),
             tooltip: 'Clear conversation',
             onPressed: _clearChat,
+          ),
+          IconButton(
+            icon: Icon(Icons.person_outline, color: PulseTheme.primary),
+            onPressed: () => context.push('/profile'),
           ),
         ],
       ),
@@ -182,13 +187,13 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.health_and_safety,
+                      Icon(Icons.health_and_safety,
                           color: PulseTheme.recoveryHigh, size: 14),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           _buildContextBadge(m),
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: PulseTheme.recoveryHigh, fontSize: 11),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -223,7 +228,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     children: [
-                      const SizedBox(
+                      SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
@@ -231,7 +236,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                       ),
                       const SizedBox(width: 10),
                       Text('Analysing your health data...',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: PulseTheme.secondary, fontSize: 12)),
                     ],
                   ),
@@ -261,14 +266,14 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                 Colors.transparent,
               ]),
             ),
-            child: const Icon(Icons.chat_bubble_outline,
+            child: Icon(Icons.chat_bubble_outline,
                 color: PulseTheme.accent, size: 40),
           ),
           const SizedBox(height: 20),
           const Text('Ask me anything about your health',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Every answer is based on your real\nhealth data',
             textAlign: TextAlign.center,
             style: TextStyle(color: PulseTheme.secondary),
@@ -328,7 +333,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                   PulseTheme.sleepPrimary.withOpacity(0.3),
                 ]),
               ),
-              child: const Icon(Icons.auto_awesome,
+              child: Icon(Icons.auto_awesome,
                   size: 16, color: PulseTheme.accent),
             ),
             const SizedBox(width: 10),
@@ -371,7 +376,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                 shape: BoxShape.circle,
                 color: PulseTheme.accent.withOpacity(0.15),
               ),
-              child: const Icon(Icons.person, size: 18, color: PulseTheme.accent),
+              child: Icon(Icons.person, size: 18, color: PulseTheme.accent),
             ),
           ],
         ],
@@ -392,14 +397,14 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
           Expanded(
             child: TextField(
               controller: _textController,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: PulseTheme.isDark ? Colors.white : Colors.black87),
               maxLines: null,
               textInputAction: TextInputAction.send,
               onSubmitted: _sendMessage,
               decoration: InputDecoration(
                 hintText: 'Ask about your health data...',
                 hintStyle:
-                    const TextStyle(color: PulseTheme.secondary),
+                    TextStyle(color: PulseTheme.secondary),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,

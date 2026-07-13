@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme.dart';
 import '../../../data/collections/workout_session.dart';
 import '../../providers/data_providers.dart';
@@ -7,6 +8,7 @@ import '../../providers/providers.dart';
 import '../../../widgets/glass_card.dart';
 import '../../../widgets/glass_container.dart';
 import '../../../widgets/animated_background.dart';
+import '../../../widgets/pulse_loader.dart';
 
 /// Health screen — shows all health data for the selected day.
 /// Every section maps to a specific health data type category.
@@ -32,7 +34,7 @@ class HealthScreen extends ConsumerWidget {
                     child: Center(
                       child: Text(
                         'Synced ${_timeAgo(m.lastHuaweiSyncTime!)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: PulseTheme.secondary, fontSize: 11),
                       ),
                     ),
@@ -40,6 +42,10 @@ class HealthScreen extends ConsumerWidget {
                 : const SizedBox(),
             loading: () => const SizedBox(),
             error: (_, __) => const SizedBox(),
+          ),
+          IconButton(
+            icon: Icon(Icons.person_outline, color: PulseTheme.primary),
+            onPressed: () => context.push('/profile'),
           ),
         ],
       ),
@@ -60,194 +66,197 @@ class HealthScreen extends ConsumerWidget {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(16),
                   children: [
-                  // ── Heart Rate & Cardiovascular ─────────────────────────────
-                  _sectionHeader(context, 'Cardiovascular', Icons.favorite_rounded,
-                      PulseTheme.recoveryLow),
-                  _vitalsGrid([
-                    _VitalItem('Resting HR', metric.restingHeartRate != null
-                        ? '${metric.restingHeartRate!.toStringAsFixed(0)} bpm'
-                        : '--',
-                        Icons.favorite_border, PulseTheme.recoveryLow),
-                    _VitalItem('Avg HR', metric.averageHeartRate != null
-                        ? '${metric.averageHeartRate!.toStringAsFixed(0)} bpm'
-                        : '--',
-                        Icons.monitor_heart_outlined, PulseTheme.strainPrimary),
-                    _VitalItem('Max HR', metric.maxHeartRate != null
-                        ? '${metric.maxHeartRate!.toStringAsFixed(0)} bpm'
-                        : '--',
-                        Icons.arrow_upward_rounded, PulseTheme.recoveryLow),
-                    _VitalItem('HRV', metric.hrv != null
-                        ? '${metric.hrv!.toStringAsFixed(1)} ms'
-                        : '--',
-                        Icons.waves, PulseTheme.recoveryHigh),
-                  ]),
-
-                  const SizedBox(height: 20),
-
-                  // ── Sleep ────────────────────────────────────────────────────
-                  _sectionHeader(context, 'Sleep', Icons.bedtime_rounded,
-                      PulseTheme.sleepPrimary),
-                  _sleepCard(context, metric),
-
-                  const SizedBox(height: 20),
-
-                  // ── Activity ──────────────────────────────────────────────────
-                  _sectionHeader(context, 'Activity', Icons.directions_run_rounded,
-                      PulseTheme.strainPrimary),
-                  _vitalsGrid([
-                    _VitalItem('Steps', metric.steps?.toString() ?? '--',
-                        Icons.directions_walk, PulseTheme.strainPrimary),
-                    _VitalItem('Distance', metric.distanceMeters != null
-                        ? '${(metric.distanceMeters! / 1000).toStringAsFixed(2)} km'
-                        : '--',
-                        Icons.map_outlined, PulseTheme.accent),
-                    _VitalItem('Active Cal', metric.activeCalories != null
-                        ? '${metric.activeCalories!.toStringAsFixed(0)} kcal'
-                        : '--',
-                        Icons.local_fire_department_rounded, PulseTheme.recoveryMedium),
-                    _VitalItem('Active Min', metric.activeMinutes != null
-                        ? '${metric.activeMinutes} min'
-                        : '--',
-                        Icons.timer_outlined, PulseTheme.strainPrimary),
-                    _VitalItem('Elevation', metric.totalElevationGainMeters != null
-                        ? '+${metric.totalElevationGainMeters!.toStringAsFixed(0)} m'
-                        : '--',
-                        Icons.terrain_rounded, PulseTheme.accent),
-                    _VitalItem('Total Cal', metric.totalCalories != null
-                        ? '${metric.totalCalories} kcal'
-                        : '--',
-                        Icons.bolt_rounded, PulseTheme.recoveryMedium),
-                  ]),
-
-                  const SizedBox(height: 20),
-
-                  // ── Respiratory & Oxygen ──────────────────────────────────────
-                  _sectionHeader(context, 'Respiratory & Oxygen',
-                      Icons.air_rounded, PulseTheme.recoveryHigh),
-                  _vitalsGrid([
-                    _VitalItem('SpO2', metric.bloodOxygenSpO2 != null
-                        ? '${metric.bloodOxygenSpO2!.toStringAsFixed(1)}%'
-                        : '--',
-                        Icons.water_drop_outlined, PulseTheme.recoveryHigh),
-                    _VitalItem('Resp. Rate', metric.respiratoryRate != null
-                        ? '${metric.respiratoryRate!.toStringAsFixed(1)} br/min'
-                        : '--',
-                        Icons.air, PulseTheme.recoveryHigh),
-                  ]),
-
-                  const SizedBox(height: 20),
-
-                  // ── Stress & Wellbeing ───────────────────────────────────────
-                  if (metric.stressScore != null) ...[
-                    _sectionHeader(context, 'Stress & Wellbeing',
-                        Icons.psychology_rounded, PulseTheme.recoveryMedium),
-                    _stressCard(context, metric),
-                    const SizedBox(height: 20),
-                  ],
-
-                  // ── Body Composition ─────────────────────────────────────────
-                  if (metric.weightKg != null || metric.bmi != null ||
-                      metric.bodyFatPercent != null) ...[
-                    _sectionHeader(context, 'Body Composition',
-                        Icons.accessibility_new_rounded, PulseTheme.accent),
+                    // ── Heart Rate & Cardiovascular ─────────────────────────────
+                    _sectionHeader(context, 'Cardiovascular', Icons.favorite_rounded,
+                        PulseTheme.recoveryLow),
                     _vitalsGrid([
-                      if (metric.weightKg != null)
-                        _VitalItem('Weight',
-                            '${metric.weightKg!.toStringAsFixed(1)} kg',
-                            Icons.scale_outlined, PulseTheme.accent),
-                      if (metric.bmi != null)
-                        _VitalItem('BMI',
-                            metric.bmi!.toStringAsFixed(1),
-                            Icons.square_foot_rounded, PulseTheme.accent),
-                      if (metric.bodyFatPercent != null)
-                        _VitalItem('Body Fat',
-                            '${metric.bodyFatPercent!.toStringAsFixed(1)}%',
-                            Icons.pie_chart_outline_rounded, PulseTheme.recoveryMedium),
-                      if (metric.muscleMassKg != null)
-                        _VitalItem('Muscle Mass',
-                            '${metric.muscleMassKg!.toStringAsFixed(1)} kg',
-                            Icons.fitness_center_rounded, PulseTheme.strainPrimary),
+                      _VitalItem('Resting HR', metric.restingHeartRate != null
+                          ? '${metric.restingHeartRate!.toStringAsFixed(0)} bpm'
+                          : '--',
+                          Icons.favorite_border, PulseTheme.recoveryLow),
+                      _VitalItem('Avg HR', metric.averageHeartRate != null
+                          ? '${metric.averageHeartRate!.toStringAsFixed(0)} bpm'
+                          : '--',
+                          Icons.monitor_heart_outlined, PulseTheme.strainPrimary),
+                      _VitalItem('Max HR', metric.maxHeartRate != null
+                          ? '${metric.maxHeartRate!.toStringAsFixed(0)} bpm'
+                          : '--',
+                          Icons.arrow_upward_rounded, PulseTheme.recoveryLow),
+                      _VitalItem('HRV', metric.hrv != null
+                          ? '${metric.hrv!.toStringAsFixed(1)} ms'
+                          : '--',
+                          Icons.waves, PulseTheme.recoveryHigh),
                     ]),
-                    const SizedBox(height: 20),
-                  ],
 
-                  // ── Blood Markers ────────────────────────────────────────────
-                  if (metric.systolicBP != null || metric.bloodGlucose != null ||
-                      metric.bodyTemperature != null) ...[
-                    _sectionHeader(context, 'Blood Markers',
-                        Icons.opacity_rounded, PulseTheme.recoveryLow),
+                    const SizedBox(height: 20),
+
+                    // ── Sleep ────────────────────────────────────────────────────
+                    _sectionHeader(context, 'Sleep', Icons.bedtime_rounded,
+                        PulseTheme.sleepPrimary),
+                    _sleepCard(context, metric),
+
+                    const SizedBox(height: 20),
+
+                    // ── Activity ──────────────────────────────────────────────────
+                    _sectionHeader(context, 'Activity', Icons.directions_run_rounded,
+                        PulseTheme.strainPrimary),
                     _vitalsGrid([
-                      if (metric.systolicBP != null && metric.diastolicBP != null)
-                        _VitalItem('Blood Pressure',
-                            '${metric.systolicBP!.toStringAsFixed(0)}/'
-                            '${metric.diastolicBP!.toStringAsFixed(0)}',
-                            Icons.bloodtype_rounded, PulseTheme.recoveryLow),
-                      if (metric.bloodGlucose != null)
-                        _VitalItem('Blood Glucose',
-                            '${metric.bloodGlucose!.toStringAsFixed(2)} mmol/L',
-                            Icons.science_outlined, PulseTheme.recoveryMedium),
-                      if (metric.bodyTemperature != null)
-                        _VitalItem('Temperature',
-                            '${metric.bodyTemperature!.toStringAsFixed(1)} °C',
-                            Icons.thermostat_rounded, PulseTheme.strainPrimary),
+                      _VitalItem('Steps', metric.steps?.toString() ?? '--',
+                          Icons.directions_walk, PulseTheme.strainPrimary),
+                      _VitalItem('Distance', metric.distanceMeters != null
+                          ? '${(metric.distanceMeters! / 1000).toStringAsFixed(2)} km'
+                          : '--',
+                          Icons.map_outlined, PulseTheme.accent),
+                      _VitalItem('Active Cal', metric.activeCalories != null
+                          ? '${metric.activeCalories!.toStringAsFixed(0)} kcal'
+                          : '--',
+                          Icons.local_fire_department_rounded, PulseTheme.recoveryMedium),
+                      _VitalItem('Active Min', metric.activeMinutes != null
+                          ? '${metric.activeMinutes} min'
+                          : '--',
+                          Icons.timer_outlined, PulseTheme.strainPrimary),
+                      _VitalItem('Elevation', metric.totalElevationGainMeters != null
+                          ? '+${metric.totalElevationGainMeters!.toStringAsFixed(0)} m'
+                          : '--',
+                          Icons.terrain_rounded, PulseTheme.accent),
+                      _VitalItem('Total Cal', metric.totalCalories != null
+                          ? '${metric.totalCalories} kcal'
+                          : '--',
+                          Icons.bolt_rounded, PulseTheme.recoveryMedium),
                     ]),
+
                     const SizedBox(height: 20),
-                  ],
 
-                  // ── Advanced Fitness ─────────────────────────────────────────
-                  _sectionHeader(context, 'Advanced Fitness',
-                      Icons.speed_rounded, PulseTheme.recoveryHigh),
-                  _vitalsGrid([
-                    _VitalItem('VO2 Max', metric.vo2Max != null
-                        ? '${metric.vo2Max!.toStringAsFixed(1)} mL/kg/min'
-                        : '--',
-                        Icons.trending_up_rounded, PulseTheme.recoveryHigh),
-                    _VitalItem('Recovery', metric.recoveryTimeHours != null
-                        ? '${metric.recoveryTimeHours}h recommended'
-                        : '--',
-                        Icons.hotel_rounded, PulseTheme.sleepPrimary),
-                    _VitalItem('Avg Pace', metric.avgPaceMinPerKm != null
-                        ? _fmtPace(metric.avgPaceMinPerKm!)
-                        : '--',
-                        Icons.timer_rounded, PulseTheme.strainPrimary),
-                    _VitalItem('Cadence', metric.avgCadence != null
-                        ? '${metric.avgCadence} spm'
-                        : '--',
-                        Icons.loop_rounded, PulseTheme.accent),
-                  ]),
+                    // ── Respiratory & Oxygen ──────────────────────────────────────
+                    _sectionHeader(context, 'Respiratory & Oxygen',
+                        Icons.air_rounded, PulseTheme.recoveryHigh),
+                    _vitalsGrid([
+                      _VitalItem('SpO2', metric.bloodOxygenSpO2 != null
+                          ? '${metric.bloodOxygenSpO2!.toStringAsFixed(1)}%'
+                          : '--',
+                          Icons.water_drop_outlined, PulseTheme.recoveryHigh),
+                      _VitalItem('Resp. Rate', metric.respiratoryRate != null
+                          ? '${metric.respiratoryRate!.toStringAsFixed(1)} br/min'
+                          : '--',
+                          Icons.air, PulseTheme.recoveryHigh),
+                    ]),
 
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                  // ── Workout Sessions ─────────────────────────────────────────
-                  _sectionHeader(context, "Today's Workouts",
-                      Icons.sports_rounded, PulseTheme.strainPrimary),
-                  workoutsAsync.when(
-                    data: (workouts) => workouts.isEmpty
-                        ? GlassCard(
-                            child: Center(
-                              child: Text(
-                                'No workout sessions recorded today',
-                                style: TextStyle(color: PulseTheme.secondary),
+                    // ── Stress & Wellbeing ───────────────────────────────────────
+                    if (metric.stressScore != null) ...[
+                      _sectionHeader(context, 'Stress & Wellbeing',
+                          Icons.psychology_rounded, PulseTheme.recoveryMedium),
+                      _stressCard(context, metric),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // ── Body Composition ─────────────────────────────────────────
+                    if (metric.weightKg != null || metric.bmi != null ||
+                        metric.bodyFatPercent != null) ...[
+                      _sectionHeader(context, 'Body Composition',
+                          Icons.accessibility_new_rounded, PulseTheme.accent),
+                      _vitalsGrid([
+                        if (metric.weightKg != null)
+                          _VitalItem('Weight',
+                              '${metric.weightKg!.toStringAsFixed(1)} kg',
+                              Icons.scale_outlined, PulseTheme.accent),
+                        if (metric.bmi != null)
+                          _VitalItem('BMI',
+                              metric.bmi!.toStringAsFixed(1),
+                              Icons.square_foot_rounded, PulseTheme.accent),
+                        if (metric.bodyFatPercent != null)
+                          _VitalItem('Body Fat',
+                              '${metric.bodyFatPercent!.toStringAsFixed(1)}%',
+                              Icons.pie_chart_outline_rounded, PulseTheme.recoveryMedium),
+                        if (metric.muscleMassKg != null)
+                          _VitalItem('Muscle Mass',
+                              '${metric.muscleMassKg!.toStringAsFixed(1)} kg',
+                              Icons.fitness_center_rounded, PulseTheme.strainPrimary),
+                      ]),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // ── Blood Markers ────────────────────────────────────────────
+                    if (metric.systolicBP != null || metric.bloodGlucose != null ||
+                        metric.bodyTemperature != null) ...[
+                      _sectionHeader(context, 'Blood Markers',
+                          Icons.opacity_rounded, PulseTheme.recoveryLow),
+                      _vitalsGrid([
+                        if (metric.systolicBP != null && metric.diastolicBP != null)
+                          _VitalItem('Blood Pressure',
+                              '${metric.systolicBP!.toStringAsFixed(0)}/'
+                              '${metric.diastolicBP!.toStringAsFixed(0)}',
+                              Icons.bloodtype_rounded, PulseTheme.recoveryLow),
+                        if (metric.bloodGlucose != null)
+                          _VitalItem('Blood Glucose',
+                              '${metric.bloodGlucose!.toStringAsFixed(2)} mmol/L',
+                              Icons.science_outlined, PulseTheme.recoveryMedium),
+                        if (metric.bodyTemperature != null)
+                          _VitalItem('Temperature',
+                              '${metric.bodyTemperature!.toStringAsFixed(1)} °C',
+                              Icons.thermostat_rounded, PulseTheme.strainPrimary),
+                      ]),
+                      const SizedBox(height: 20),
+                    ],
+
+                    // ── Advanced Fitness ─────────────────────────────────────────
+                    _sectionHeader(context, 'Advanced Fitness',
+                        Icons.speed_rounded, PulseTheme.recoveryHigh),
+                    _vitalsGrid([
+                      _VitalItem('VO2 Max', metric.vo2Max != null
+                          ? '${metric.vo2Max!.toStringAsFixed(1)} mL/kg/min'
+                          : '--',
+                          Icons.trending_up_rounded, PulseTheme.recoveryHigh),
+                      _VitalItem('Recovery', metric.recoveryTimeHours != null
+                          ? '${metric.recoveryTimeHours}h recommended'
+                          : '--',
+                          Icons.hotel_rounded, PulseTheme.sleepPrimary),
+                      _VitalItem('Avg Pace', metric.avgPaceMinPerKm != null
+                          ? _fmtPace(metric.avgPaceMinPerKm!)
+                          : '--',
+                          Icons.timer_rounded, PulseTheme.strainPrimary),
+                      _VitalItem('Cadence', metric.avgCadence != null
+                          ? '${metric.avgCadence} spm'
+                          : '--',
+                          Icons.loop_rounded, PulseTheme.accent),
+                    ]),
+
+                    const SizedBox(height: 20),
+
+                    // ── Workout Sessions ─────────────────────────────────────────
+                    _sectionHeader(context, "Today's Workouts",
+                        Icons.sports_rounded, PulseTheme.strainPrimary),
+                    workoutsAsync.when(
+                      data: (workouts) => workouts.isEmpty
+                          ? GlassCard(
+                              child: Center(
+                                child: Text(
+                                  'No workout sessions recorded today',
+                                  style: TextStyle(color: PulseTheme.secondary),
+                                ),
                               ),
+                            )
+                          : Column(
+                              children: workouts
+                                  .map((w) => _workoutCard(context, w))
+                                  .toList(),
                             ),
-                          )
-                        : Column(
-                            children: workouts
-                                .map((w) => _workoutCard(context, w))
-                                .toList(),
-                          ),
-                    loading: () => const Center(
-                        child: CircularProgressIndicator()),
-                    error: (e, _) => Text('Error: $e'),
-                  ),
+                      loading: () => const SizedBox(
+                        height: 80,
+                        child: PulseLoadingIndicator(size: 40, message: 'Loading workouts...'),
+                      ),
+                      error: (e, _) => Text('Error: $e'),
+                    ),
 
-                  const SizedBox(height: 24),
-                ],
-              ),
-            );
-          },
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              );
+            },
             loading: () => const Center(
-                child: CircularProgressIndicator()),
+              child: PulseLoadingIndicator(message: 'Retrieving health indicators...'),
+            ),
             error: (e, _) => Center(child: Text('Error loading health data: $e')),
           ),
         ),
@@ -299,13 +308,13 @@ class HealthScreen extends ConsumerWidget {
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(item.value,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold)),
+                        style: TextStyle(
+                            color: PulseTheme.isDark ? Colors.white : Colors.black87,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold)),
                     ),
                     Text(item.label,
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: PulseTheme.secondary, fontSize: 11),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
@@ -344,10 +353,10 @@ class HealthScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Total Sleep',
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: PulseTheme.secondary, fontSize: 12)),
                   Text(fmtMins(total),
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
                           color: PulseTheme.sleepPrimary)),
@@ -358,7 +367,7 @@ class HealthScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text('Efficiency',
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: PulseTheme.secondary, fontSize: 12)),
                     Text('${m.sleepEfficiency!.toStringAsFixed(0)}%',
                         style: const TextStyle(
@@ -420,7 +429,7 @@ class HealthScreen extends ConsumerWidget {
         Container(width: 10, height: 10,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: PulseTheme.secondary, fontSize: 10)),
+        Text(label, style: TextStyle(color: PulseTheme.secondary, fontSize: 10)),
         Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
       ],
     );
@@ -442,7 +451,7 @@ class HealthScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Stress Score',
+                Text('Stress Score',
                     style: TextStyle(color: PulseTheme.secondary, fontSize: 12)),
                 Text('${score.toStringAsFixed(0)}/100',
                     style: TextStyle(
@@ -516,7 +525,7 @@ class HealthScreen extends ConsumerWidget {
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 16)),
                   Text(dur,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: PulseTheme.secondary, fontSize: 13)),
                   const SizedBox(height: 4),
                   Wrap(

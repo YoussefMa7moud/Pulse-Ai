@@ -65,7 +65,7 @@ final todayWorkoutsProvider = FutureProvider<List<WorkoutSession>>((ref) async {
 /// Returns recent workout sessions (last 14 days) — used by AI for training load context.
 final recentWorkoutsProvider = FutureProvider<List<WorkoutSession>>((ref) async {
   final db = ref.watch(databaseProvider);
-  return await db.getRecentWorkouts(days: 14);
+  return await db.getRecentWorkouts(days: 30);
 });
 
 /// Returns "Strength Training" sessions that haven't been linked to a GymRoutine yet.

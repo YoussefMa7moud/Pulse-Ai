@@ -64,10 +64,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(profile.name ?? 'User',
-                                        style: Theme.of(context).textTheme.titleLarge),
+                                    Expanded(
+                                      child: Text(
+                                        profile.name ?? 'User',
+                                        style: Theme.of(context).textTheme.titleLarge,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
                                     IconButton(
-                                      icon: const Icon(Icons.edit, color: PulseTheme.secondary, size: 20),
+                                      icon: Icon(Icons.edit, color: PulseTheme.secondary, size: 20),
                                       onPressed: () => _showEditProfileDialog(context, profile, ref),
                                     ),
                                   ],
@@ -98,7 +103,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         child: Text(
                           'Goal: ${profile.primaryGoal ?? "Not set"}',
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: PulseTheme.accent,
                               fontWeight: FontWeight.bold,
                               fontSize: 13),
@@ -138,13 +143,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 authAsync.when(
-                                  data: (authorized) => Row(
+                                  data: (authorized) => Wrap(
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    spacing: 8,
+                                    runSpacing: 4,
                                     children: [
                                       const Text('Health Connect',
                                           style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 16)),
-                                      const SizedBox(width: 8),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 8, vertical: 2),
@@ -179,18 +186,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   profile.lastSyncDate != null
                                       ? 'Last sync: ${_formatDate(profile.lastSyncDate!)}'
                                       : 'Never synced',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       color: PulseTheme.secondary,
                                       fontSize: 12),
                                 ),
-                                  if (profile.huaweiDisplayName != null)
-                                    Text(
-                                      'Account Linked',
-                                      style: const TextStyle(
-                                          color: PulseTheme.secondary,
-                                          fontSize: 12),
-                                    ),
-                                ],
+                                if (profile.huaweiDisplayName != null)
+                                  Text(
+                                    'Account Linked',
+                                    style: TextStyle(
+                                        color: PulseTheme.secondary,
+                                        fontSize: 12),
+                                  ),
+                              ],
                             ),
                           ),
                         ],
@@ -202,7 +209,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           icon: syncResultAsync.isLoading
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 16,
                                   height: 16,
                                   child: CircularProgressIndicator(
@@ -243,7 +250,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             } catch (e) {
                               errorMsg = e.toString();
                             }
-                            
+
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                                 content: Text(success
@@ -306,7 +313,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     ),
                                     child: Text(
                                       snap.data!,
-                                      style: const TextStyle(color: PulseTheme.secondary, fontSize: 10, fontFamily: 'monospace'),
+                                      style: TextStyle(color: PulseTheme.secondary, fontSize: 10, fontFamily: 'monospace'),
                                     ),
                                   );
                                 },
@@ -316,7 +323,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         loading: () => const SizedBox(),
                         error: (e, __) => Padding(
                           padding: const EdgeInsets.only(top: 8),
-                          child: Text('Sync error: $e', style: const TextStyle(color: PulseTheme.recoveryLow, fontSize: 11)),
+                          child: Text('Sync error: $e', style: TextStyle(color: PulseTheme.recoveryLow, fontSize: 11)),
                         ),
                       ),
 
@@ -353,12 +360,70 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(label,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                             color: PulseTheme.accent,
                                             fontSize: 11)),
                                   )).toList(),
                             ),
                           ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // ── Theme Settings ───────────────────────────────────────────
+                Text('Theme Settings',
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                GlassContainer(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        title: const Text('Theme Mode'),
+                        trailing: DropdownButton<ThemeMode>(
+                          value: ref.watch(themeSettingsProvider).mode,
+                          dropdownColor: PulseTheme.surface,
+                          items: ThemeMode.values
+                              .map((m) => DropdownMenuItem(
+                                  value: m,
+                                  child: Text(m.name.toUpperCase(), style: const TextStyle(fontSize: 12))))
+                              .toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              ref.read(themeSettingsProvider.notifier).updateThemeMode(val);
+                            }
+                          },
+                        ),
+                      ),
+                      ListTile(
+                        title: const Text('Theme Variant'),
+                        trailing: DropdownButton<ThemeVariant>(
+                          value: ref.watch(themeSettingsProvider).variant,
+                          dropdownColor: PulseTheme.surface,
+                          items: ThemeVariant.values
+                              .map((v) => DropdownMenuItem(
+                                  value: v,
+                                  child: Text(
+                                    v.name == 'midnightSlate'
+                                        ? 'Midnight Slate'
+                                        : v.name == 'neonHorizon'
+                                            ? 'Neon Horizon'
+                                            : v.name == 'forestZen'
+                                                ? 'Forest Zen'
+                                                : 'Sunset Crimson',
+                                    style: const TextStyle(fontSize: 12),
+                                  )))
+                              .toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              ref.read(themeSettingsProvider.notifier).updateThemeVariant(val);
+                            }
+                          },
                         ),
                       ),
                     ],
@@ -378,7 +443,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     children: [
                       ListTile(
                         title: const Text('AI Provider'),
-                        subtitle: const Text(
+                        subtitle: Text(
                             'All responses are grounded in your health data',
                             style: TextStyle(
                                 color: PulseTheme.secondary, fontSize: 11)),
@@ -517,19 +582,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               TextField(
                 controller: ageController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Age (years)', labelStyle: TextStyle(color: PulseTheme.secondary)),
+                decoration: InputDecoration(labelText: 'Age (years)', labelStyle: TextStyle(color: PulseTheme.secondary)),
                 style: const TextStyle(color: Colors.white),
               ),
               TextField(
                 controller: heightController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Height (cm)', labelStyle: TextStyle(color: PulseTheme.secondary)),
+                decoration: InputDecoration(labelText: 'Height (cm)', labelStyle: TextStyle(color: PulseTheme.secondary)),
                 style: const TextStyle(color: Colors.white),
               ),
               TextField(
                 controller: weightController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Weight (kg)', labelStyle: TextStyle(color: PulseTheme.secondary)),
+                decoration: InputDecoration(labelText: 'Weight (kg)', labelStyle: TextStyle(color: PulseTheme.secondary)),
                 style: const TextStyle(color: Colors.white),
               ),
             ],
@@ -537,7 +602,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: PulseTheme.secondary)),
+              child: Text('Cancel', style: TextStyle(color: PulseTheme.secondary)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: PulseTheme.accent),

@@ -6,6 +6,7 @@ import '../../providers/data_providers.dart';
 import '../../../widgets/glass_container.dart';
 import '../../../widgets/animated_background.dart';
 import '../../../services/ai_service.dart';
+import '../../../widgets/pulse_loader.dart';
 
 class ScoreDetailScreen extends ConsumerStatefulWidget {
   final String scoreType;
@@ -101,7 +102,7 @@ class _ScoreDetailScreenState extends ConsumerState<ScoreDetailScreen> {
                     ),
                     const SizedBox(height: 16),
                     if (isLoading)
-                      const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+                      const Center(child: Padding(padding: EdgeInsets.all(32), child: PulseLoadingIndicator(size: 50, message: 'Consulting AI coach...')))
                     else
                       Text(aiInsight ?? "No insight available.", style: const TextStyle(fontSize: 16, height: 1.6, color: Colors.white)),
                   ],
@@ -113,10 +114,10 @@ class _ScoreDetailScreenState extends ConsumerState<ScoreDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
                         Icon(Icons.science, color: PulseTheme.secondary),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text('HOW IT WORKS', style: TextStyle(color: PulseTheme.secondary, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                       ],
                     ),

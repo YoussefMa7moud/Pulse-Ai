@@ -319,31 +319,8 @@ class GoogleHealthService implements HealthRepository {
 
     if (sourceSums.isEmpty) return 0.0;
 
-    // Prioritize Huawei Health
-    String? bestSource;
-    for (final src in sourceSums.keys) {
-      final sLower = src.toLowerCase();
-      if (sLower.contains('huawei') || sLower.contains('health')) {
-        bestSource = src;
-        break;
-      }
-    }
-    
-    // Check Samsung Health
-    if (bestSource == null) {
-      for (final src in sourceSums.keys) {
-        final sLower = src.toLowerCase();
-        if (sLower.contains('samsung') || sLower.contains('shealth')) {
-          bestSource = src;
-          break;
-        }
-      }
-    }
-
-    // Fallback to the source with the maximum sum
-    bestSource ??= sourceSums.entries
-        .reduce((a, b) => a.value > b.value ? a : b)
-        .key;
+    final bestSource = _findBestSource(sourceSums.keys) ??
+        sourceSums.entries.reduce((a, b) => a.value > b.value ? a : b).key;
 
     return sourceSums[bestSource] ?? 0.0;
   }
@@ -365,28 +342,8 @@ class GoogleHealthService implements HealthRepository {
       sourcePoints.putIfAbsent(src, () => []).add(p);
     }
 
-    String? bestSource;
-    for (final src in sourcePoints.keys) {
-      final sLower = src.toLowerCase();
-      if (sLower.contains('huawei') || sLower.contains('health')) {
-        bestSource = src;
-        break;
-      }
-    }
-    if (bestSource == null) {
-      for (final src in sourcePoints.keys) {
-        final sLower = src.toLowerCase();
-        if (sLower.contains('samsung') || sLower.contains('shealth')) {
-          bestSource = src;
-          break;
-        }
-      }
-    }
-    if (bestSource == null) {
-      bestSource = sourcePoints.entries
-          .reduce((a, b) => a.value.length > b.value.length ? a : b)
-          .key;
-    }
+    final bestSource = _findBestSource(sourcePoints.keys) ??
+        sourcePoints.entries.reduce((a, b) => a.value.length > b.value.length ? a : b).key;
 
     final points = sourcePoints[bestSource] ?? [];
     
@@ -451,29 +408,46 @@ class GoogleHealthService implements HealthRepository {
       sourcePoints.putIfAbsent(src, () => []).add(p);
     }
 
-    String? bestSource;
-    for (final src in sourcePoints.keys) {
-      final sLower = src.toLowerCase();
-      if (sLower.contains('huawei') || sLower.contains('health')) {
-        bestSource = src;
-        break;
-      }
-    }
-    if (bestSource == null) {
-      for (final src in sourcePoints.keys) {
-        final sLower = src.toLowerCase();
-        if (sLower.contains('samsung') || sLower.contains('shealth')) {
-          bestSource = src;
-          break;
-        }
-      }
-    }
-    if (bestSource == null) {
-      bestSource = sourcePoints.entries
-          .reduce((a, b) => a.value.length > b.value.length ? a : b)
-          .key;
-    }
+    final bestSource = _findBestSource(sourcePoints.keys) ??
+        sourcePoints.entries.reduce((a, b) => a.value.length > b.value.length ? a : b).key;
 
     return sourcePoints[bestSource] ?? [];
+  }
+
+  String? _findBestSource(Iterable<String> sources) {
+    if (sources.isEmpty) return null;
+
+    // 1. Strictly prioritize Huawei Health app (contains 'huawei')
+    for (final src in sources) {
+      if (src.toLowerCase().contains('huawei')) {
+        return src;
+      }
+    }
+
+    // 2. Next, check for specific wearable apps
+    for (final src in sources) {
+      final sLower = src.toLowerCase();
+      if (sLower.contains('samsung') ||
+          sLower.contains('shealth') ||
+          sLower.contains('zepp') ||
+          sLower.contains('fitbit') ||
+          sLower.contains('mi') ||
+          sLower.contains('xiaomi') ||
+          sLower.contains('garmin')) {
+        return src;
+      }
+    }
+
+    // 3. Next, check for Google Fit or generic health/fitness apps (excluding system healthdata)
+    for (final src in sources) {
+      final sLower = src.toLowerCase();
+      if (sLower.contains('fitness') ||
+          sLower.contains('fit') ||
+          (sLower.contains('health') && !sLower.contains('healthdata'))) {
+        return src;
+      }
+    }
+
+    return null;
   }
 }

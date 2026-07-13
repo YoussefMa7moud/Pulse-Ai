@@ -4,8 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 import '../presentation/navigation/app_scaffold.dart';
+import 'theme.dart';
 import '../presentation/screens/home/home_screen.dart';
-import '../presentation/screens/gym/gym_screen.dart';
+import '../presentation/screens/gym/exercise_screen.dart';
 import '../presentation/screens/health/health_screen.dart';
 import '../presentation/screens/insights/insights_screen.dart';
 import '../presentation/screens/insights/score_detail_screen.dart';
@@ -13,35 +14,27 @@ import '../presentation/screens/coach/coach_screen.dart';
 import '../presentation/screens/profile/profile_screen.dart';
 import '../presentation/screens/profile/auth_screen.dart';
 import '../presentation/screens/onboarding/onboarding_screen.dart';
-import '../data/database_service.dart';
+import '../presentation/providers/providers.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final db = ref.watch(databaseProvider);
-
   return GoRouter(
     initialLocation: '/',
     redirect: (context, state) async {
       final user = sb.Supabase.instance.client.auth.currentUser;
       final loggingIn = state.matchedLocation == '/login';
-
-      if (user == null) {
-        return loggingIn ? null : '/login';
-      }
-
-      if (loggingIn) {
-        return '/';
-      }
-
-      // Check onboarding state from Supabase
-      final profile = await db.getUserProfile();
-      final hasCompletedOnboarding = profile.hasCompletedOnboarding;
       final isOnboarding = state.matchedLocation == '/onboarding';
 
-      if (!hasCompletedOnboarding) {
-        return isOnboarding ? null : '/onboarding';
+      if (user == null) {
+        final prefs = ref.read(sharedPreferencesProvider);
+        final completedWalkthrough = prefs.getBool('completed_walkthrough') ?? false;
+
+        if (!completedWalkthrough) {
+          return isOnboarding ? null : '/onboarding';
+        }
+        return (loggingIn || isOnboarding) ? null : '/login';
       }
 
-      if (isOnboarding) {
+      if (loggingIn || isOnboarding) {
         return '/';
       }
 
@@ -50,7 +43,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/login',
-        builder: (context, state) => const AuthScreen(),
+        builder: (context, state) {
+          final mode = state.uri.queryParameters['mode'] ?? 'login';
+          return AuthScreen(initialMode: mode);
+        },
       ),
       GoRoute(
         path: '/onboarding',
@@ -66,8 +62,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const HomeScreen(),
           ),
           GoRoute(
-            path: '/gym',
-            builder: (context, state) => const GymScreen(),
+            path: '/exercise',
+            builder: (context, state) => const ExerciseScreen(),
           ),
           GoRoute(
             path: '/health',

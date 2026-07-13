@@ -2,303 +2,527 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme.dart';
 import '../../providers/providers.dart';
 import '../../providers/data_providers.dart';
 import '../../../widgets/glass_container.dart';
 import '../../../widgets/animated_background.dart';
-import '../../../widgets/score_cards.dart';
+import '../../../widgets/pulse_loader.dart';
 import '../../../services/ai_service.dart';
-import 'package:intl/intl.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final profileAsync = ref.watch(userProfileProvider);
-    final scoresAsync = ref.watch(todayScoresProvider);
-    final metricsAsync = ref.watch(todayMetricsProvider);
-    final historyScoresAsync = ref.watch(historyScoresProvider);
-    final explanations = scoresAsync.hasValue ? ref.watch(scoreExplanationsProvider(scoresAsync.value!)).value : null;
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      body: AnimatedGradientBackground(
-        child: SafeArea(
-        child: RefreshIndicator(
-          color: PulseTheme.primary,
-          backgroundColor: PulseTheme.surfaceLight,
-          onRefresh: () async {
-            final syncUseCase = ref.read(syncUseCaseProvider);
-            await syncUseCase.syncToday();
-            ref.invalidate(todayScoresProvider);
-            ref.invalidate(todayMetricsProvider);
-            ref.invalidate(historyMetricsProvider);
-            ref.invalidate(historyScoresProvider);
-          },
-          child: CustomScrollView(
-            slivers: [
-              // Dynamic Premium App Bar
-              SliverAppBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                pinned: true,
-                expandedHeight: 80,
-                flexibleSpace: FlexibleSpaceBar(
-                  titlePadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  title: profileAsync.when(
-                    data: (profile) => Text(
-                      "Good Morning, ${profile.name ?? 'User'}", 
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: Colors.white),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    loading: () => const Text('Loading...', style: TextStyle(fontSize: 16)),
-                    error: (_, __) => const Text('Welcome', style: TextStyle(fontSize: 16)),
-                  ),
-                ),
-              ),
-              
-              SliverPadding(
-                padding: const EdgeInsets.all(24),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    
-                    // Date Navigator
-                    _DateNavigator(),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Main Hero Score (Recovery)
-                    scoresAsync.when(
-                      data: (score) {
-                        if (score.isDataComplete == false) {
-                          return Center(
-                            child: GlassContainer(
-                              padding: const EdgeInsets.all(24),
-                              borderColor: PulseTheme.recoveryLow.withOpacity(0.5),
-                              child: Column(
-                                children: [
-                                  const Icon(Icons.info_outline, color: PulseTheme.recoveryLow, size: 48),
-                                  const SizedBox(height: 16),
-                                  Text("Incomplete Data", style: Theme.of(context).textTheme.titleLarge?.copyWith(color: PulseTheme.recoveryLow, fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 8),
-                                  const Text(
-                                    "We need more data (like Sleep and Heart Rate) to generate your scores for today. Please sync your band or wear it to bed.",
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: Colors.white70),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  ElevatedButton(
-                                    onPressed: () async {
-                                      final syncUseCase = ref.read(syncUseCaseProvider);
-                                      await syncUseCase.syncToday();
-                                      ref.invalidate(todayMetricsProvider);
-                                      ref.invalidate(todayScoresProvider);
-                                    },
-                                    style: ElevatedButton.styleFrom(backgroundColor: PulseTheme.recoveryLow),
-                                    child: const Text("Sync Now"),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }
-                        return TweenAnimationBuilder<double>(
-                          tween: Tween<double>(begin: 0.0, end: 1.0),
-                          duration: const Duration(milliseconds: 600),
-                          curve: Curves.easeOutCubic,
-                          builder: (context, value, child) {
-                            return Opacity(
-                              opacity: value,
-                              child: Transform.scale(
-                                scale: 0.95 + (0.05 * value),
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () => context.push('/score_detail/recovery'),
-                                      child: CompactScoreCard(
-                                        title: 'Recovery',
-                                        score: score.recoveryScore ?? 0,
-                                        color: _getRecoveryColor(score.recoveryScore ?? 0),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () => context.push('/score_detail/sleep'),
-                                      child: CompactScoreCard(
-                                        title: 'Sleep',
-                                        score: score.sleepScore ?? 0,
-                                        color: PulseTheme.sleepPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () => context.push('/score_detail/strain'),
-                                      child: CompactScoreCard(
-                                        title: 'Strain',
-                                        score: score.strainScore ?? 0,
-                                        color: PulseTheme.strainPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () => context.push('/score_detail/readiness'),
-                                      child: CompactScoreCard(
-                                        title: 'Readiness',
-                                        score: score.readinessScore ?? 0,
-                                        color: PulseTheme.accent,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              // AI Daily Brief Card - Premium Look
-                              _PremiumDailyBrief(score: score),
-                            ],
-                          ),
-                        );
-                      },
-                      loading: () => const SizedBox(height: 350, child: Center(child: CircularProgressIndicator(color: PulseTheme.recoveryHigh))),
-                      error: (_, __) => const SizedBox(),
-                    ),
-
-                    const SizedBox(height: 48),
-
-                    // Metrics Dashboard
-                    Text('KEY METRICS', style: Theme.of(context).textTheme.titleLarge?.copyWith(letterSpacing: 2, color: PulseTheme.secondary, fontSize: 14)),
-                    const SizedBox(height: 16),
-                    
-                    metricsAsync.when(
-                      data: (metrics) => TweenAnimationBuilder<double>(
-                        tween: Tween<double>(begin: 0.0, end: 1.0),
-                        duration: const Duration(milliseconds: 650),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, value, child) {
-                          return Opacity(
-                            opacity: value,
-                            child: Transform.translate(
-                              offset: Offset(0, 15 * (1.0 - value)),
-                              child: child,
-                            ),
-                          );
-                        },
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _MetricSquare(
-                                    icon: Icons.favorite_rounded, 
-                                    title: 'RHR', 
-                                    value: '${(metrics.restingHeartRate ?? 0).toInt()}', 
-                                    unit: 'bpm', 
-                                    color: PulseTheme.recoveryLow,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: _MetricSquare(
-                                    icon: Icons.local_fire_department_rounded, 
-                                    title: 'Burned', 
-                                    value: '${(metrics.caloriesBurned ?? 0).toInt()}', 
-                                    unit: 'kcal', 
-                                    color: PulseTheme.strainPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _MetricSquare(
-                                    icon: Icons.directions_walk_rounded, 
-                                    title: 'Steps', 
-                                    value: '${metrics.steps ?? 0}', 
-                                    unit: 'steps', 
-                                    color: PulseTheme.accent,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: _MetricSquare(
-                                    icon: Icons.timer_rounded, 
-                                    title: 'Active', 
-                                    value: '${metrics.activeMinutes ?? 0}', 
-                                    unit: 'min', 
-                                    color: Colors.greenAccent,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            _PremiumMetricRow(
-                              icon: Icons.bedtime_rounded, 
-                              title: 'Sleep Performance', 
-                              value: '${((metrics.totalSleepMinutes ?? 0) / 60).toStringAsFixed(1)} h',
-                              subtitle: '${(metrics.deepSleepMinutes ?? 0)}m Deep • ${(metrics.remSleepMinutes ?? 0)}m REM',
-                              color: PulseTheme.sleepPrimary,
-                            ),
-                          ],
-                        ),
-                      ),
-                      loading: () => const CircularProgressIndicator(),
-                      error: (_, __) => const Text('Error loading metrics'),
-                    ),
-
-                    const SizedBox(height: 48),
-                    
-                    // Historical Trend Chart
-                    Text('RECOVERY TREND', style: Theme.of(context).textTheme.titleLarge?.copyWith(letterSpacing: 2, color: PulseTheme.secondary, fontSize: 14)),
-                    const SizedBox(height: 16),
-                    historyScoresAsync.when(
-                      data: (history) => TweenAnimationBuilder<double>(
-                        tween: Tween<double>(begin: 0.0, end: 1.0),
-                        duration: const Duration(milliseconds: 700),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, value, child) {
-                          return Opacity(
-                            opacity: value,
-                            child: child,
-                          );
-                        },
-                        child: _TrendChart(scoresHistory: history),
-                      ),
-                      loading: () => const SizedBox(height: 200, child: Center(child: CircularProgressIndicator())),
-                      error: (_, __) => const SizedBox(),
-                    ),
-
-                    const SizedBox(height: 64),
-                  ]),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      ),
-    );
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) return 'Good Morning';
+    if (hour >= 12 && hour < 17) return 'Good Afternoon';
+    if (hour >= 17 && hour < 21) return 'Good Evening';
+    return 'Good Night';
   }
 
   Color _getRecoveryColor(double score) {
     if (score >= 67) return PulseTheme.recoveryHigh;
     if (score >= 34) return PulseTheme.recoveryMedium;
     return PulseTheme.recoveryLow;
+  }
+
+  Widget _buildPremiumScoreCard(
+    BuildContext context,
+    String title,
+    double? value,
+    Color color,
+    IconData icon,
+    String route,
+  ) {
+    final isDark = PulseTheme.isDark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
+    return GestureDetector(
+      onTap: () => context.push(route),
+      child: GlassContainer(
+        padding: const EdgeInsets.all(16),
+        borderColor: color.withOpacity(0.25),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(icon, color: color, size: 20),
+                Icon(Icons.open_in_new_rounded, color: PulseTheme.secondary, size: 14),
+              ],
+            ),
+            const Spacer(),
+            Text(
+              value == null ? '-' : value.toInt().toString(),
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w900,
+                color: textColor,
+                height: 1.1,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              title.toUpperCase(),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: PulseTheme.secondary,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIncompleteDataCard(BuildContext context, WidgetRef ref) {
+    final textColor = PulseTheme.isDark ? Colors.white : Colors.black87;
+
+    return Center(
+      child: GlassContainer(
+        padding: const EdgeInsets.all(24),
+        borderColor: PulseTheme.recoveryLow.withOpacity(0.5),
+        child: Column(
+          children: [
+            Icon(Icons.info_outline, color: PulseTheme.recoveryLow, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              "Incomplete Data",
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: PulseTheme.recoveryLow,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "We need more data (like Sleep and Heart Rate) to generate your scores for today. Please sync your band or Wear it to bed.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: textColor.withOpacity(0.7)),
+            ),
+            const SizedBox(height: 20),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.sync_rounded),
+                  label: const Text("Sync Now", style: TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: () async {
+                    final syncUseCase = ref.read(syncUseCaseProvider);
+                    await syncUseCase.syncToday();
+                    ref.invalidate(todayMetricsProvider);
+                    ref.invalidate(todayScoresProvider);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: PulseTheme.recoveryLow,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.lock_open_rounded),
+                  label: const Text("Link Connect (Permissions)", style: TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: () async {
+                    final health = ref.read(healthServiceProvider);
+                    bool success = false;
+                    try {
+                      success = await health.requestPermissions();
+                    } catch (_) {}
+
+                    if (success) {
+                      final syncUseCase = ref.read(syncUseCaseProvider);
+                      await syncUseCase.syncToday();
+                      ref.invalidate(todayMetricsProvider);
+                      ref.invalidate(todayScoresProvider);
+                      ref.invalidate(healthAuthStateProvider);
+                    }
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: textColor,
+                    side: BorderSide(color: textColor.withOpacity(0.3)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profileAsync = ref.watch(userProfileProvider);
+    final scoresAsync = ref.watch(todayScoresProvider);
+    final metricsAsync = ref.watch(todayMetricsProvider);
+    final historyScoresAsync = ref.watch(historyScoresProvider);
+    final textColor = PulseTheme.isDark ? Colors.white : Colors.black87;
+
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      body: AnimatedGradientBackground(
+        child: SafeArea(
+          child: RefreshIndicator(
+            color: PulseTheme.primary,
+            backgroundColor: PulseTheme.surfaceLight,
+            onRefresh: () async {
+              final syncUseCase = ref.read(syncUseCaseProvider);
+              await syncUseCase.syncToday();
+              ref.invalidate(todayScoresProvider);
+              ref.invalidate(todayMetricsProvider);
+              ref.invalidate(historyMetricsProvider);
+              ref.invalidate(historyScoresProvider);
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                // Pinned Clean SliverAppBar
+                SliverAppBar(
+                  backgroundColor: PulseTheme.surface.withOpacity(0.9),
+                  elevation: 0,
+                  pinned: true,
+                  title: Text(
+                    'PULSE AI',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2.0,
+                      fontSize: 20,
+                      color: textColor,
+                    ),
+                  ),
+                  actions: [
+                    IconButton(
+                      icon: Icon(Icons.sync_rounded, color: textColor),
+                      onPressed: () async {
+                        final syncUseCase = ref.read(syncUseCaseProvider);
+                        await syncUseCase.syncToday();
+                        ref.invalidate(todayScoresProvider);
+                        ref.invalidate(todayMetricsProvider);
+                        ref.invalidate(historyMetricsProvider);
+                        ref.invalidate(historyScoresProvider);
+                      },
+                    ),
+                  ],
+                ),
+
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      // Greeting & Profile Avatar Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _getGreeting(),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: PulseTheme.secondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              profileAsync.when(
+                                data: (profile) => Text(
+                                  profile.name ?? 'User',
+                                  style: TextStyle(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.bold,
+                                    color: textColor,
+                                  ),
+                                ),
+                                loading: () => const Text('Loading...', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+                                error: (_, __) => const Text('User', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                          GestureDetector(
+                            onTap: () => context.push('/profile'),
+                            child: Container(
+                              width: 46,
+                              height: 46,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: PulseTheme.accent.withOpacity(0.4), width: 1.5),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    PulseTheme.accent.withOpacity(0.2),
+                                    PulseTheme.sleepPrimary.withOpacity(0.2),
+                                  ],
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.person,
+                                color: textColor,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 20),
+                      _DateNavigator(),
+                      const SizedBox(height: 24),
+
+                      // Scores 2x2 Grid + AI Brief underneath
+                      scoresAsync.when(
+                        data: (score) {
+                          final isComplete = score?.isDataComplete ?? false;
+                          final recoveryVal = isComplete ? score?.recoveryScore : null;
+                          final sleepVal = isComplete ? score?.sleepScore : null;
+                          final strainVal = isComplete ? score?.strainScore : null;
+                          final readinessVal = isComplete ? score?.readinessScore : null;
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              GridView(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  childAspectRatio: 1.3,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                ),
+                                children: [
+                                  _buildPremiumScoreCard(
+                                    context,
+                                    'Recovery',
+                                    recoveryVal,
+                                    _getRecoveryColor(recoveryVal ?? 0.0),
+                                    Icons.favorite_rounded,
+                                    '/score_detail/recovery',
+                                  ),
+                                  _buildPremiumScoreCard(
+                                    context,
+                                    'Sleep',
+                                    sleepVal,
+                                    PulseTheme.sleepPrimary,
+                                    Icons.bedtime_rounded,
+                                    '/score_detail/sleep',
+                                  ),
+                                  _buildPremiumScoreCard(
+                                    context,
+                                    'Strain',
+                                    strainVal,
+                                    PulseTheme.strainPrimary,
+                                    Icons.directions_run_rounded,
+                                    '/score_detail/strain',
+                                  ),
+                                  _buildPremiumScoreCard(
+                                    context,
+                                    'Readiness',
+                                    readinessVal,
+                                    PulseTheme.accent,
+                                    Icons.bolt_rounded,
+                                    '/score_detail/readiness',
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              if (!isComplete) ...[
+                                _buildIncompleteDataCard(context, ref),
+                              ] else ...[
+                                _PremiumDailyBrief(score: score!),
+                              ],
+                            ],
+                          );
+                        },
+                        loading: () => const SizedBox(
+                          height: 220,
+                          child: PulseLoadingIndicator(message: 'Loading health intelligence...'),
+                        ),
+                        error: (error, _) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              GridView(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  childAspectRatio: 1.3,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                ),
+                                children: [
+                                  _buildPremiumScoreCard(
+                                    context,
+                                    'Recovery',
+                                    null,
+                                    PulseTheme.recoveryLow,
+                                    Icons.favorite_rounded,
+                                    '/score_detail/recovery',
+                                  ),
+                                  _buildPremiumScoreCard(
+                                    context,
+                                    'Sleep',
+                                    null,
+                                    PulseTheme.sleepPrimary,
+                                    Icons.bedtime_rounded,
+                                    '/score_detail/sleep',
+                                  ),
+                                  _buildPremiumScoreCard(
+                                    context,
+                                    'Strain',
+                                    null,
+                                    PulseTheme.strainPrimary,
+                                    Icons.directions_run_rounded,
+                                    '/score_detail/strain',
+                                  ),
+                                  _buildPremiumScoreCard(
+                                    context,
+                                    'Readiness',
+                                    null,
+                                    PulseTheme.accent,
+                                    Icons.bolt_rounded,
+                                    '/score_detail/readiness',
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              _buildIncompleteDataCard(context, ref),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Text(
+                                  'Sync Error: $error',
+                                  style: TextStyle(color: PulseTheme.recoveryLow, fontSize: 12, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Metrics Dashboard
+                      Text(
+                        'KEY METRICS',
+                        style: TextStyle(
+                          letterSpacing: 2,
+                          color: PulseTheme.secondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      metricsAsync.when(
+                        data: (metrics) => Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _MetricSquare(
+                                    icon: Icons.favorite_rounded,
+                                    title: 'RHR',
+                                    value: '${(metrics.restingHeartRate ?? 0).toInt()}',
+                                    unit: 'bpm',
+                                    color: PulseTheme.recoveryLow,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _MetricSquare(
+                                    icon: Icons.local_fire_department_rounded,
+                                    title: 'Burned',
+                                    value: '${(metrics.caloriesBurned ?? 0).toInt()}',
+                                    unit: 'kcal',
+                                    color: PulseTheme.strainPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _MetricSquare(
+                                    icon: Icons.directions_walk_rounded,
+                                    title: 'Steps',
+                                    value: '${metrics.steps ?? 0}',
+                                    unit: 'steps',
+                                    color: PulseTheme.accent,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _MetricSquare(
+                                    icon: Icons.timer_rounded,
+                                    title: 'Active',
+                                    value: '${metrics.activeMinutes ?? 0}',
+                                    unit: 'min',
+                                    color: Colors.greenAccent,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            _PremiumMetricRow(
+                              icon: Icons.bedtime_rounded,
+                              title: 'Sleep Performance',
+                              value: '${((metrics.totalSleepMinutes ?? 0) / 60).toStringAsFixed(1)} h',
+                              subtitle: '${(metrics.deepSleepMinutes ?? 0)}m Deep • ${(metrics.remSleepMinutes ?? 0)}m REM',
+                              color: PulseTheme.sleepPrimary,
+                            ),
+                          ],
+                        ),
+                        loading: () => const SizedBox(
+                          height: 180,
+                          child: PulseLoadingIndicator(size: 50, message: 'Loading metrics...'),
+                        ),
+                        error: (_, __) => const Text('Error loading metrics'),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Historical Trend Chart
+                      Text(
+                        'RECOVERY TREND',
+                        style: TextStyle(
+                          letterSpacing: 2,
+                          color: PulseTheme.secondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      historyScoresAsync.when(
+                        data: (history) => _TrendChart(scoresHistory: history),
+                        loading: () => const SizedBox(
+                          height: 200,
+                          child: PulseLoadingIndicator(size: 60, message: 'Plotting trend...'),
+                        ),
+                        error: (_, __) => const SizedBox(),
+                      ),
+
+                      const SizedBox(height: 96),
+                    ]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -309,10 +533,18 @@ class _PremiumMetricRow extends StatelessWidget {
   final String subtitle;
   final Color color;
 
-  const _PremiumMetricRow({required this.icon, required this.title, required this.value, required this.subtitle, required this.color});
+  const _PremiumMetricRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final textColor = PulseTheme.isDark ? Colors.white : Colors.black87;
+
     return GlassContainer(
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -330,13 +562,16 @@ class _PremiumMetricRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                Text(
+                  title,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor),
+                ),
                 const SizedBox(height: 4),
                 Text(subtitle, style: TextStyle(color: PulseTheme.secondary, fontSize: 13)),
               ],
             ),
           ),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: Colors.white)),
+          Text(value, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: textColor)),
         ],
       ),
     );
@@ -360,6 +595,8 @@ class _MetricSquare extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textColor = PulseTheme.isDark ? Colors.white : Colors.black87;
+
     return GlassContainer(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -369,14 +606,22 @@ class _MetricSquare extends StatelessWidget {
             children: [
               Icon(icon, color: color, size: 20),
               const SizedBox(width: 8),
-              Text(title.toUpperCase(), style: TextStyle(color: PulseTheme.secondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              Text(
+                title.toUpperCase(),
+                style: TextStyle(
+                  color: PulseTheme.secondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white, height: 1)),
+              Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: textColor, height: 1)),
               const SizedBox(width: 4),
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
@@ -408,6 +653,17 @@ class _PremiumDailyBriefState extends ConsumerState<_PremiumDailyBrief> {
     _loadBrief();
   }
 
+  @override
+  void didUpdateWidget(_PremiumDailyBrief oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.score != widget.score) {
+      setState(() {
+        loading = true;
+      });
+      _loadBrief();
+    }
+  }
+
   Future<void> _loadBrief() async {
     final aiService = ref.read(aiServicesProvider);
     try {
@@ -430,6 +686,8 @@ class _PremiumDailyBriefState extends ConsumerState<_PremiumDailyBrief> {
 
   @override
   Widget build(BuildContext context) {
+    final textColor = PulseTheme.isDark ? Colors.white.withOpacity(0.9) : Colors.black87;
+
     return GlassContainer(
       padding: const EdgeInsets.all(24),
       borderColor: PulseTheme.accent.withOpacity(0.3),
@@ -438,18 +696,31 @@ class _PremiumDailyBriefState extends ConsumerState<_PremiumDailyBrief> {
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome, color: PulseTheme.accent, size: 20),
+              Icon(Icons.auto_awesome, color: PulseTheme.accent, size: 20),
               const SizedBox(width: 10),
-              Text('PULSE AI BRIEF', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 14, letterSpacing: 2, color: PulseTheme.accent)),
+              Text(
+                'ADVICE FOR THE DAY',
+                style: TextStyle(
+                  fontSize: 13,
+                  letterSpacing: 2,
+                  color: PulseTheme.accent,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
           if (loading)
-            const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(strokeWidth: 3, color: PulseTheme.accent)))
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(strokeWidth: 3, color: Colors.cyan),
+              ),
+            )
           else
             Text(
               brief ?? '',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.6, fontSize: 16, color: Colors.white.withOpacity(0.9)),
+              style: TextStyle(height: 1.6, fontSize: 15, color: textColor),
             ),
         ],
       ),
@@ -474,7 +745,7 @@ class _TrendChart extends StatelessWidget {
 
     // Sort by date ascending to plot left-to-right
     final sorted = [...scoresHistory]..sort((a, b) => a.date.compareTo(b.date));
-    
+
     // Take up to 7 most recent
     final recent = sorted.length > 7 ? sorted.sublist(sorted.length - 7) : sorted;
 
@@ -488,37 +759,37 @@ class _TrendChart extends StatelessWidget {
       child: SizedBox(
         height: 220,
         child: LineChart(
-        LineChartData(
-          gridData: FlGridData(show: false),
-          titlesData: FlTitlesData(
-            show: true,
-            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-          ),
-          borderData: FlBorderData(show: false),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots.isEmpty ? [const FlSpot(0,0)] : spots,
-              isCurved: true,
-              color: PulseTheme.recoveryHigh,
-              barWidth: 4,
-              isStrokeCapRound: true,
-              dotData: FlDotData(show: false),
-              belowBarData: BarAreaData(
-                show: true,
-                color: PulseTheme.recoveryHigh.withOpacity(0.1),
+          LineChartData(
+            gridData: FlGridData(show: false),
+            titlesData: FlTitlesData(
+              show: true,
+              topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(showTitles: false),
               ),
             ),
-          ],
-          minX: 0,
-          maxX: (recent.length > 1 ? recent.length - 1 : 1).toDouble(),
-          minY: 0,
-          maxY: 100,
+            borderData: FlBorderData(show: false),
+            lineBarsData: [
+              LineChartBarData(
+                spots: spots.isEmpty ? [const FlSpot(0, 0)] : spots,
+                isCurved: true,
+                color: PulseTheme.recoveryHigh,
+                barWidth: 4,
+                isStrokeCapRound: true,
+                dotData: FlDotData(show: false),
+                belowBarData: BarAreaData(
+                  show: true,
+                  color: PulseTheme.recoveryHigh.withOpacity(0.1),
+                ),
+              ),
+            ],
+            minX: 0,
+            maxX: (recent.length > 1 ? recent.length - 1 : 1).toDouble(),
+            minY: 0,
+            maxY: 100,
+          ),
         ),
-      ),
       ),
     );
   }
@@ -530,12 +801,13 @@ class _DateNavigator extends ConsumerWidget {
     final selectedDate = ref.watch(selectedDateProvider);
     final now = DateTime.now();
     final isToday = selectedDate.year == now.year && selectedDate.month == now.month && selectedDate.day == now.day;
+    final textColor = PulseTheme.isDark ? Colors.white : Colors.black87;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         IconButton(
-          icon: const Icon(Icons.chevron_left, color: PulseTheme.secondary),
+          icon: Icon(Icons.chevron_left, color: PulseTheme.secondary),
           onPressed: () {
             ref.read(selectedDateProvider.notifier).state = selectedDate.subtract(const Duration(days: 1));
           },
@@ -543,18 +815,21 @@ class _DateNavigator extends ConsumerWidget {
         const SizedBox(width: 16),
         Text(
           isToday ? 'TODAY' : DateFormat('MMM d, yyyy').format(selectedDate).toUpperCase(),
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          style: TextStyle(
             fontWeight: FontWeight.bold,
             letterSpacing: 1.5,
-            color: Colors.white,
+            color: textColor,
+            fontSize: 14,
           ),
         ),
         const SizedBox(width: 16),
         IconButton(
           icon: Icon(Icons.chevron_right, color: isToday ? Colors.transparent : PulseTheme.secondary),
-          onPressed: isToday ? null : () {
-            ref.read(selectedDateProvider.notifier).state = selectedDate.add(const Duration(days: 1));
-          },
+          onPressed: isToday
+              ? null
+              : () {
+                  ref.read(selectedDateProvider.notifier).state = selectedDate.add(const Duration(days: 1));
+                },
         ),
       ],
     );

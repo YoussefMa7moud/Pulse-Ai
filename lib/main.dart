@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/theme.dart';
 import 'core/app_router.dart';
@@ -16,6 +17,8 @@ void main() async {
   await dotenv.load(fileName: '.env').catchError((e) {
     debugPrint('No .env file found. Proceeding without it.');
   });
+
+  final prefs = await SharedPreferences.getInstance();
 
   final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
   final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
@@ -45,6 +48,7 @@ void main() async {
     ProviderScope(
       overrides: [
         databaseProvider.overrideWithValue(dbService),
+        sharedPreferencesProvider.overrideWithValue(prefs),
       ],
       child: PulseApp(syncUseCase: syncUseCase),
     ),
@@ -93,10 +97,12 @@ class _PulseAppState extends ConsumerState<PulseApp>
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
+    final themeSettings = ref.watch(themeSettingsProvider);
+    final isSystemDark = MediaQuery.of(context).platformBrightness == Brightness.dark;
 
     return MaterialApp.router(
       title: 'Pulse AI',
-      theme: PulseTheme.darkTheme,
+      theme: PulseTheme.getThemeData(themeSettings.mode, themeSettings.variant, isSystemDark),
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

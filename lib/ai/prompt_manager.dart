@@ -279,10 +279,8 @@ class PromptManager {
   static String get dailyBriefPrompt =>
       '$baseSystemPrompt\n\n'
       'Generate a DAILY BRIEF for the user based on their Huawei Health data below. '
-      'Output MUST be 3-4 sentences maximum. '
-      'State the recovery/readiness status and name the primary driver (e.g. poor REM sleep, '
-      'elevated RHR, high stress score). Give ONE specific, actionable recommendation '
-      'tailored to their actual numbers today. Reference specific metrics by value.';
+      'Output MUST be exactly one short, punchy sentence of advice for the day (under 25 words). '
+      'State the main physiological advice tailored to their actual numbers today. Reference specific metrics by value.';
 
   static String get recoveryAnalysisPrompt =>
       '$baseSystemPrompt\n\n'

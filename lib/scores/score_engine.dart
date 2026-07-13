@@ -37,8 +37,25 @@ class ScoreEngine {
 
     score.sleepScore       = _calculateSleepScore(today, history);
     score.strainScore      = _calculateStrainScore(today);
+
+    double? yesterdayStrain;
+    if (history.isNotEmpty) {
+      final yesterdayDate = today.date.subtract(const Duration(days: 1));
+      try {
+        final yesterdayMetric = history.firstWhere(
+          (m) =>
+              m.date.year == yesterdayDate.year &&
+              m.date.month == yesterdayDate.month &&
+              m.date.day == yesterdayDate.day,
+        );
+        yesterdayStrain = _calculateStrainScore(yesterdayMetric);
+      } catch (_) {
+        yesterdayStrain = _calculateStrainScore(history.first);
+      }
+    }
+
     score.recoveryScore    = _calculateRecoveryScore(
-        today, score.sleepScore, score.strainScore, history);
+        today, score.sleepScore, yesterdayStrain, history);
     score.readinessScore   = _calculateReadinessScore(
         score.recoveryScore, score.sleepScore);
     score.energyScore      = _calculateEnergyScore(
