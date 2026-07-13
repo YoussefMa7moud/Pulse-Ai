@@ -102,7 +102,7 @@ class _PulseAppState extends ConsumerState<PulseApp>
 
     return MaterialApp.router(
       title: 'Pulse AI',
-      theme: PulseTheme.getThemeData(themeSettings.mode, themeSettings.variant, isSystemDark),
+      theme: PulseTheme.getThemeData(themeSettings.mode, themeSettings.variant, themeSettings.widgetCardTheme, isSystemDark),
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

@@ -103,17 +103,35 @@ final todayScoresProvider = FutureProvider<DailyScore>((ref) async {
   await db.upsertScore(score);
   await db.upsertMetric(todayMetric);
 
-  // Update Android Home Widget
+  // Update Android Home Widgets (8 Premium widgets)
   try {
-    await HomeWidget.saveWidgetData<String>(
-        'recovery_score', score.recoveryScore?.toInt().toString() ?? '--');
-    await HomeWidget.saveWidgetData<String>(
-        'strain_score', score.strainScore?.toInt().toString() ?? '--');
-    await HomeWidget.saveWidgetData<String>(
-        'sleep_score', score.sleepScore?.toInt().toString() ?? '--');
-    await HomeWidget.updateWidget(name: 'PulseWidgetProvider');
-    await HomeWidget.updateWidget(name: 'PulseLargeWidgetProvider');
-    await HomeWidget.updateWidget(name: 'PulseSmallWidgetProvider');
+    // Scores
+    await HomeWidget.saveWidgetData<String>('recovery_score', score.recoveryScore?.toInt().toString() ?? '--');
+    await HomeWidget.saveWidgetData<String>('strain_score', score.strainScore?.toInt().toString() ?? '--');
+    await HomeWidget.saveWidgetData<String>('sleep_score', score.sleepScore?.toInt().toString() ?? '--');
+    await HomeWidget.saveWidgetData<String>('readiness_score', score.readinessScore?.toInt().toString() ?? '--');
+    await HomeWidget.saveWidgetData<String>('energy_score', score.energyScore?.toInt().toString() ?? '--');
+    await HomeWidget.saveWidgetData<String>('stress_score', score.stressBalanceScore?.toInt().toString() ?? '--');
+
+    // Metrics from today's data
+    await HomeWidget.saveWidgetData<String>('steps', todayMetric.steps?.toString() ?? '0');
+    await HomeWidget.saveWidgetData<String>('calories', todayMetric.activeCalories?.toInt().toString() ?? '0');
+    await HomeWidget.saveWidgetData<String>('rhr', todayMetric.restingHeartRate?.toInt().toString() ?? '--');
+    await HomeWidget.saveWidgetData<String>('sleep_hours', ((todayMetric.totalSleepMinutes ?? 0) / 60.0).toStringAsFixed(1));
+    await HomeWidget.saveWidgetData<String>('active_min', todayMetric.activeMinutes?.toString() ?? '0');
+    await HomeWidget.saveWidgetData<String>('hrv', todayMetric.hrv?.toInt().toString() ?? '--');
+    await HomeWidget.saveWidgetData<String>('spo2', todayMetric.bloodOxygenSpO2?.toInt().toString() ?? '--');
+    await HomeWidget.saveWidgetData<String>('distance_km', ((todayMetric.distanceMeters ?? 0.0) / 1000.0).toStringAsFixed(1));
+
+    // Notify each widget provider to update
+    await HomeWidget.updateWidget(name: 'PulseRecoveryWidgetProvider');
+    await HomeWidget.updateWidget(name: 'PulseSleepWidgetProvider');
+    await HomeWidget.updateWidget(name: 'PulseStrainWidgetProvider');
+    await HomeWidget.updateWidget(name: 'PulseReadinessWidgetProvider');
+    await HomeWidget.updateWidget(name: 'PulseStressWidgetProvider');
+    await HomeWidget.updateWidget(name: 'PulseStepsWidgetProvider');
+    await HomeWidget.updateWidget(name: 'PulseHeartWidgetProvider');
+    await HomeWidget.updateWidget(name: 'PulseOverviewWidgetProvider');
   } catch (e) {
     // Widget update failure is non-fatal
   }

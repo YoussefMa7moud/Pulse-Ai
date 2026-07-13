@@ -7,6 +7,8 @@ import '../presentation/navigation/app_scaffold.dart';
 import 'theme.dart';
 import '../presentation/screens/home/home_screen.dart';
 import '../presentation/screens/gym/exercise_screen.dart';
+import '../presentation/screens/gym/workout_detail_screen.dart';
+import '../data/collections/workout_session.dart';
 import '../presentation/screens/health/health_screen.dart';
 import '../presentation/screens/insights/insights_screen.dart';
 import '../presentation/screens/insights/score_detail_screen.dart';
@@ -86,6 +88,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final type = state.pathParameters['type'] ?? 'recovery';
               return ScoreDetailScreen(scoreType: type);
+            },
+          ),
+          GoRoute(
+            path: '/workout_detail',
+            builder: (context, state) {
+              final workout = state.extra as WorkoutSession;
+              return WorkoutDetailScreen(workout: workout);
             },
           ),
         ],

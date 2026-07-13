@@ -7,9 +7,12 @@ import '../../../core/theme.dart';
 import '../../providers/providers.dart';
 import '../../providers/data_providers.dart';
 import '../../../widgets/glass_container.dart';
+import '../../../widgets/styled_card.dart';
 import '../../../widgets/animated_background.dart';
 import '../../../widgets/pulse_loader.dart';
 import '../../../services/ai_service.dart';
+import '../../../widgets/animated_counter.dart';
+import '../../../widgets/staggered_animation.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -44,40 +47,91 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isDark = PulseTheme.isDark;
     final textColor = isDark ? Colors.white : Colors.black87;
 
+    String statusText = '--';
+    if (value != null) {
+      final t = title.toLowerCase();
+      if (t.contains('recovery')) {
+        statusText = value >= 67 ? 'Optimal' : (value >= 34 ? 'Resting' : 'Low');
+      } else if (t.contains('sleep')) {
+        statusText = value >= 80 ? 'Optimal' : (value >= 50 ? 'Fair' : 'Poor');
+      } else if (t.contains('strain')) {
+        statusText = value >= 70 ? 'High' : (value >= 30 ? 'Moderate' : 'Light');
+      } else if (t.contains('readiness')) {
+        statusText = value >= 70 ? 'Peak' : (value >= 40 ? 'Moderate' : 'Low');
+      } else if (t.contains('energy')) {
+        statusText = value >= 70 ? 'Charged' : (value >= 40 ? 'Medium' : 'Low');
+      } else if (t.contains('stress')) {
+        statusText = value >= 70 ? 'Calm' : (value >= 40 ? 'Balanced' : 'High');
+      } else {
+        statusText = value >= 70 ? 'Good' : 'Elevated';
+      }
+    }
+
     return GestureDetector(
       onTap: () => context.push(route),
-      child: GlassContainer(
-        padding: const EdgeInsets.all(16),
-        borderColor: color.withOpacity(0.25),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: StyledCard(
+        color: color,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, color: color, size: 20),
-                Icon(Icons.open_in_new_rounded, color: PulseTheme.secondary, size: 14),
-              ],
-            ),
-            const Spacer(),
-            Text(
-              value == null ? '-' : value.toInt().toString(),
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.w900,
-                color: textColor,
-                height: 1.1,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: color, size: 14),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          color: PulseTheme.secondary,
+                          letterSpacing: 1.0,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        statusText,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: textColor.withOpacity(0.9),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              title.toUpperCase(),
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: PulseTheme.secondary,
-                letterSpacing: 1.0,
-              ),
+            const SizedBox(width: 6),
+            AnimatedProgressRing(
+              value: value == null ? 0.0 : (value / 100.0),
+              color: color,
+              size: 48,
+              strokeWidth: 3.5,
+              backgroundColor: color.withOpacity(0.08),
+              child: value == null
+                  ? Text('-', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: textColor))
+                  : AnimatedCounter(
+                      value: value,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: textColor,
+                      ),
+                    ),
             ),
           ],
         ),
@@ -117,10 +171,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   icon: const Icon(Icons.sync_rounded),
                   label: const Text("Sync Now", style: TextStyle(fontWeight: FontWeight.bold)),
                   onPressed: () async {
-                    final syncUseCase = ref.read(syncUseCaseProvider);
-                    await syncUseCase.syncToday();
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                    try {
+                      final syncUseCase = ref.read(syncUseCaseProvider);
+                      await syncUseCase.syncAll(daysBack: 14);
+                    } catch (_) {}
+                    if (context.mounted) Navigator.pop(context);
+
                     ref.invalidate(todayMetricsProvider);
                     ref.invalidate(todayScoresProvider);
+                    ref.invalidate(recentWorkoutsProvider);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: PulseTheme.recoveryLow,
@@ -139,11 +205,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     } catch (_) {}
 
                     if (success) {
-                      final syncUseCase = ref.read(syncUseCaseProvider);
-                      await syncUseCase.syncToday();
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                      try {
+                        final syncUseCase = ref.read(syncUseCaseProvider);
+                        await syncUseCase.syncAll(daysBack: 14);
+                      } catch (_) {}
+                      if (context.mounted) Navigator.pop(context);
+
                       ref.invalidate(todayMetricsProvider);
                       ref.invalidate(todayScoresProvider);
                       ref.invalidate(healthAuthStateProvider);
+                      ref.invalidate(recentWorkoutsProvider);
                     }
                   },
                   style: OutlinedButton.styleFrom(
@@ -186,34 +264,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                // Pinned Clean SliverAppBar
-                SliverAppBar(
-                  backgroundColor: PulseTheme.surface.withOpacity(0.9),
-                  elevation: 0,
-                  pinned: true,
-                  title: Text(
-                    'PULSE AI',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2.0,
-                      fontSize: 20,
-                      color: textColor,
-                    ),
-                  ),
-                  actions: [
-                    IconButton(
-                      icon: Icon(Icons.sync_rounded, color: textColor),
-                      onPressed: () async {
-                        final syncUseCase = ref.read(syncUseCaseProvider);
-                        await syncUseCase.syncToday();
-                        ref.invalidate(todayScoresProvider);
-                        ref.invalidate(todayMetricsProvider);
-                        ref.invalidate(historyMetricsProvider);
-                        ref.invalidate(historyScoresProvider);
-                      },
-                    ),
-                  ],
-                ),
 
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -286,6 +336,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           final sleepVal = isComplete ? score?.sleepScore : null;
                           final strainVal = isComplete ? score?.strainScore : null;
                           final readinessVal = isComplete ? score?.readinessScore : null;
+                          final energyVal = isComplete ? score?.energyScore : null;
+                          final stressVal = isComplete ? score?.stressBalanceScore : null;
 
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -295,7 +347,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 physics: const NeverScrollableScrollPhysics(),
                                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 2,
-                                  childAspectRatio: 1.3,
+                                  childAspectRatio: 1.35,
                                   crossAxisSpacing: 12,
                                   mainAxisSpacing: 12,
                                 ),
@@ -332,7 +384,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     Icons.bolt_rounded,
                                     '/score_detail/readiness',
                                   ),
-                                ],
+                                  _buildPremiumScoreCard(
+                                    context,
+                                    'Energy',
+                                    energyVal,
+                                    Colors.orangeAccent,
+                                    Icons.battery_charging_full_rounded,
+                                    '/score_detail/energy',
+                                  ),
+                                  _buildPremiumScoreCard(
+                                    context,
+                                    'Stress Balance',
+                                    stressVal,
+                                    Colors.tealAccent,
+                                    Icons.psychology_rounded,
+                                    '/score_detail/stress',
+                                  ),
+                                ].asMap().entries.map((entry) {
+                                  return StaggeredFadeSlide(
+                                    index: entry.key,
+                                    child: entry.value,
+                                  );
+                                }).toList(),
                               ),
                               const SizedBox(height: 16),
                               if (!isComplete) ...[
@@ -356,7 +429,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 physics: const NeverScrollableScrollPhysics(),
                                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 2,
-                                  childAspectRatio: 1.3,
+                                  childAspectRatio: 1.35,
                                   crossAxisSpacing: 12,
                                   mainAxisSpacing: 12,
                                 ),
@@ -393,7 +466,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     Icons.bolt_rounded,
                                     '/score_detail/readiness',
                                   ),
-                                ],
+                                  _buildPremiumScoreCard(
+                                    context,
+                                    'Energy',
+                                    null,
+                                    Colors.orangeAccent,
+                                    Icons.battery_charging_full_rounded,
+                                    '/score_detail/energy',
+                                  ),
+                                  _buildPremiumScoreCard(
+                                    context,
+                                    'Stress Balance',
+                                    null,
+                                    Colors.tealAccent,
+                                    Icons.psychology_rounded,
+                                    '/score_detail/stress',
+                                  ),
+                                ].asMap().entries.map((entry) {
+                                  return StaggeredFadeSlide(
+                                    index: entry.key,
+                                    child: entry.value,
+                                  );
+                                }).toList(),
                               ),
                               const SizedBox(height: 16),
                               _buildIncompleteDataCard(context, ref),
@@ -443,7 +537,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   child: _MetricSquare(
                                     icon: Icons.local_fire_department_rounded,
                                     title: 'Burned',
-                                    value: '${(metrics.caloriesBurned ?? 0).toInt()}',
+                                    value: '${(metrics.activeCalories ?? 0).toInt()}',
                                     unit: 'kcal',
                                     color: PulseTheme.strainPrimary,
                                   ),
@@ -545,7 +639,8 @@ class _PremiumMetricRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final textColor = PulseTheme.isDark ? Colors.white : Colors.black87;
 
-    return GlassContainer(
+    return StyledCard(
+      color: color,
       padding: const EdgeInsets.all(20),
       child: Row(
         children: [
@@ -571,7 +666,17 @@ class _PremiumMetricRow extends StatelessWidget {
               ],
             ),
           ),
-          Text(value, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: textColor)),
+          Builder(builder: (context) {
+            final parts = value.split(' ');
+            final numVal = double.tryParse(parts.first) ?? 0.0;
+            final suffix = parts.length > 1 ? ' ${parts.sublist(1).join(' ')}' : '';
+            return AnimatedCounter(
+              value: numVal,
+              suffix: suffix,
+              decimals: value.contains('.') ? 1 : 0,
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: textColor),
+            );
+          }),
         ],
       ),
     );
@@ -597,7 +702,8 @@ class _MetricSquare extends StatelessWidget {
   Widget build(BuildContext context) {
     final textColor = PulseTheme.isDark ? Colors.white : Colors.black87;
 
-    return GlassContainer(
+    return StyledCard(
+      color: color,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -621,7 +727,11 @@ class _MetricSquare extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(value, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: textColor, height: 1)),
+              AnimatedCounter(
+                value: double.tryParse(value.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0,
+                decimals: value.contains('.') ? 1 : 0,
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: textColor, height: 1),
+              ),
               const SizedBox(width: 4),
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
@@ -688,9 +798,9 @@ class _PremiumDailyBriefState extends ConsumerState<_PremiumDailyBrief> {
   Widget build(BuildContext context) {
     final textColor = PulseTheme.isDark ? Colors.white.withOpacity(0.9) : Colors.black87;
 
-    return GlassContainer(
+    return StyledCard(
+      color: PulseTheme.accent,
       padding: const EdgeInsets.all(24),
-      borderColor: PulseTheme.accent.withOpacity(0.3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -754,7 +864,8 @@ class _TrendChart extends StatelessWidget {
       spots.add(FlSpot(i.toDouble(), recent[i].recoveryScore ?? 0.0));
     }
 
-    return GlassContainer(
+    return StyledCard(
+      color: PulseTheme.recoveryHigh,
       padding: const EdgeInsets.only(right: 24, left: 16, top: 24, bottom: 16),
       child: SizedBox(
         height: 220,

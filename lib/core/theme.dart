@@ -4,16 +4,28 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum ThemeVariant { midnightSlate, neonHorizon, forestZen, sunsetCrimson }
+enum WidgetCardTheme { glassmorphism, cyberpunk, animatedAura, minimalStark }
 
 class ThemeSettings {
   final ThemeMode mode;
   final ThemeVariant variant;
-  ThemeSettings({required this.mode, required this.variant});
+  final WidgetCardTheme widgetCardTheme;
 
-  ThemeSettings copyWith({ThemeMode? mode, ThemeVariant? variant}) {
+  ThemeSettings({
+    required this.mode,
+    required this.variant,
+    required this.widgetCardTheme,
+  });
+
+  ThemeSettings copyWith({
+    ThemeMode? mode,
+    ThemeVariant? variant,
+    WidgetCardTheme? widgetCardTheme,
+  }) {
     return ThemeSettings(
       mode: mode ?? this.mode,
       variant: variant ?? this.variant,
+      widgetCardTheme: widgetCardTheme ?? this.widgetCardTheme,
     );
   }
 }
@@ -35,6 +47,7 @@ class ThemeSettingsNotifier extends StateNotifier<ThemeSettings> {
       : super(ThemeSettings(
           mode: ThemeMode.values[prefs.getInt('theme_mode') ?? ThemeMode.dark.index],
           variant: ThemeVariant.values[prefs.getInt('theme_variant') ?? ThemeVariant.midnightSlate.index],
+          widgetCardTheme: WidgetCardTheme.values[prefs.getInt('widget_card_theme') ?? WidgetCardTheme.glassmorphism.index],
         ));
 
   void updateThemeMode(ThemeMode mode) {
@@ -46,16 +59,23 @@ class ThemeSettingsNotifier extends StateNotifier<ThemeSettings> {
     state = state.copyWith(variant: variant);
     prefs.setInt('theme_variant', variant.index);
   }
+
+  void updateWidgetCardTheme(WidgetCardTheme cardTheme) {
+    state = state.copyWith(widgetCardTheme: cardTheme);
+    prefs.setInt('widget_card_theme', cardTheme.index);
+  }
 }
 
 class PulseTheme {
   static ThemeMode _mode = ThemeMode.dark;
   static ThemeVariant _variant = ThemeVariant.midnightSlate;
+  static WidgetCardTheme _widgetCardTheme = WidgetCardTheme.glassmorphism;
   static bool _isDark = true;
 
-  static void updateTheme(ThemeMode mode, ThemeVariant variant, bool isSystemDark) {
+  static void updateTheme(ThemeMode mode, ThemeVariant variant, WidgetCardTheme cardTheme, bool isSystemDark) {
     _mode = mode;
     _variant = variant;
+    _widgetCardTheme = cardTheme;
     if (mode == ThemeMode.system) {
       _isDark = isSystemDark;
     } else {
@@ -66,6 +86,7 @@ class PulseTheme {
   // Active theme properties
   static ThemeMode get activeMode => _mode;
   static ThemeVariant get activeVariant => _variant;
+  static WidgetCardTheme get activeWidgetCardTheme => _widgetCardTheme;
   static bool get isDark => _isDark;
 
   // ── COLOR PALETTES ────────────────────────────────────────────────────────
@@ -222,8 +243,8 @@ class PulseTheme {
   static Color get sleepPrimary => _currentPalette.sleepPrimary;
   static Color get strainPrimary => _currentPalette.strainPrimary;
 
-  static ThemeData getThemeData(ThemeMode mode, ThemeVariant variant, bool isSystemDark) {
-    updateTheme(mode, variant, isSystemDark);
+  static ThemeData getThemeData(ThemeMode mode, ThemeVariant variant, WidgetCardTheme cardTheme, bool isSystemDark) {
+    updateTheme(mode, variant, cardTheme, isSystemDark);
     final themeMode = _isDark ? Brightness.dark : Brightness.light;
 
     return ThemeData(
@@ -298,7 +319,7 @@ class PulseTheme {
   }
 
   // Backward compatibility
-  static ThemeData get darkTheme => getThemeData(ThemeMode.dark, ThemeVariant.midnightSlate, true);
+  static ThemeData get darkTheme => getThemeData(ThemeMode.dark, ThemeVariant.midnightSlate, WidgetCardTheme.glassmorphism, true);
 }
 
 class _Palette {

@@ -16,22 +16,21 @@ class InsightsScreen extends ConsumerWidget {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text('Insights Center', style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.person_outline, color: PulseTheme.primary),
+            onPressed: () => context.push('/profile'),
+          ),
+        ],
+      ),
       body: AnimatedGradientBackground(
         child: SafeArea(
           child: CustomScrollView(
             slivers: [
-              SliverAppBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                pinned: true,
-                title: const Text('Insights Center', style: TextStyle(fontWeight: FontWeight.bold)),
-                actions: [
-                  IconButton(
-                    icon: Icon(Icons.person_outline, color: PulseTheme.primary),
-                    onPressed: () => context.push('/profile'),
-                  ),
-                ],
-              ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),

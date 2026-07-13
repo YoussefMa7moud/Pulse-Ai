@@ -3,40 +3,28 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@drawable/widget_bg"
-    android:padding="16dp">
+    android:background="@drawable/widget_bg_dark"
+    android:padding="16dp"
+    android:gravity="center">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="PULSE AI HEALTH GLANCE"
+        android:textColor="#94A3B8"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.2"
+        android:gravity="center"
+        android:layout_marginBottom="12dp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="16dp">
-        
-        <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@android:drawable/ic_menu_sort_by_size"
-            android:tint="#FFFFFF" />
-            
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="PULSE DASHBOARD"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.1"
-            android:paddingStart="8dp" />
-    </LinearLayout>
+        android:weightSum="4">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:weightSum="3"
-        android:layout_marginBottom="16dp">
-
+        <!-- Recovery -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -44,21 +32,22 @@
             android:orientation="vertical"
             android:gravity="center">
             <TextView
-                android:id="@+id/recovery_score_large"
+                android:id="@+id/overview_recovery"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textColor="#4CAF50"
-                android:textSize="32sp"
+                android:textColor="#22D3EE"
+                android:textSize="20sp"
                 android:textStyle="bold" />
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="RECOVERY"
-                android:textColor="#A0A0A0"
-                android:textSize="12sp" />
+                android:textColor="#94A3B8"
+                android:textSize="8sp" />
         </LinearLayout>
 
+        <!-- Sleep -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -66,53 +55,65 @@
             android:orientation="vertical"
             android:gravity="center">
             <TextView
-                android:id="@+id/strain_score_large"
+                android:id="@+id/overview_sleep"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textColor="#2196F3"
-                android:textSize="32sp"
-                android:textStyle="bold" />
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="STRAIN"
-                android:textColor="#A0A0A0"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center">
-            <TextView
-                android:id="@+id/sleep_score_large"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="--"
-                android:textColor="#9C27B0"
-                android:textSize="32sp"
+                android:textColor="#818CF8"
+                android:textSize="20sp"
                 android:textStyle="bold" />
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="SLEEP"
-                android:textColor="#A0A0A0"
-                android:textSize="12sp" />
+                android:textColor="#94A3B8"
+                android:textSize="8sp" />
+        </LinearLayout>
+
+        <!-- Strain -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+            <TextView
+                android:id="@+id/overview_strain"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--"
+                android:textColor="#FB923C"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="STRAIN"
+                android:textColor="#94A3B8"
+                android:textSize="8sp" />
+        </LinearLayout>
+
+        <!-- Steps -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+            <TextView
+                android:id="@+id/overview_steps"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--"
+                android:textColor="#38BDF8"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="STEPS"
+                android:textColor="#94A3B8"
+                android:textSize="8sp" />
         </LinearLayout>
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/ai_insight_text"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Loading AI Strategy..."
-        android:textColor="#E0E0E0"
-        android:textSize="14sp"
-        android:lineSpacingExtra="4dp"
-        android:background="#1AFFFFFF"
-        android:padding="12dp" />
-
 </LinearLayout>

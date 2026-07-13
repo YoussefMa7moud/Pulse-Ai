@@ -248,10 +248,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
         children: [
           // Logo
           Center(
-            child: Icon(
-              Icons.favorite_rounded,
-              size: 64,
-              color: PulseTheme.recoveryLow,
+            child: Image.asset(
+              'assets/logo.png',
+              width: 96,
+              height: 96,
             ),
           ),
           const SizedBox(height: 16),

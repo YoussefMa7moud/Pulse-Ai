@@ -123,11 +123,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                     ],
                                   ),
                                 ),
-                                child: Icon(
-                                  item.icon,
-                                  size: 72,
-                                  color: item.color,
-                                ),
+                                child: index == 0
+                                    ? Padding(
+                                        padding: const EdgeInsets.all(12),
+                                        child: Image.asset(
+                                          'assets/logo.png',
+                                          fit: BoxFit.contain,
+                                        ),
+                                      )
+                                    : Icon(
+                                        item.icon,
+                                        size: 72,
+                                        color: item.color,
+                                      ),
                               ),
                               const SizedBox(height: 40),
 

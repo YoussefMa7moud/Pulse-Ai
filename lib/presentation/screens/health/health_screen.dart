@@ -200,55 +200,6 @@ class HealthScreen extends ConsumerWidget {
                       const SizedBox(height: 20),
                     ],
 
-                    // ── Advanced Fitness ─────────────────────────────────────────
-                    _sectionHeader(context, 'Advanced Fitness',
-                        Icons.speed_rounded, PulseTheme.recoveryHigh),
-                    _vitalsGrid([
-                      _VitalItem('VO2 Max', metric.vo2Max != null
-                          ? '${metric.vo2Max!.toStringAsFixed(1)} mL/kg/min'
-                          : '--',
-                          Icons.trending_up_rounded, PulseTheme.recoveryHigh),
-                      _VitalItem('Recovery', metric.recoveryTimeHours != null
-                          ? '${metric.recoveryTimeHours}h recommended'
-                          : '--',
-                          Icons.hotel_rounded, PulseTheme.sleepPrimary),
-                      _VitalItem('Avg Pace', metric.avgPaceMinPerKm != null
-                          ? _fmtPace(metric.avgPaceMinPerKm!)
-                          : '--',
-                          Icons.timer_rounded, PulseTheme.strainPrimary),
-                      _VitalItem('Cadence', metric.avgCadence != null
-                          ? '${metric.avgCadence} spm'
-                          : '--',
-                          Icons.loop_rounded, PulseTheme.accent),
-                    ]),
-
-                    const SizedBox(height: 20),
-
-                    // ── Workout Sessions ─────────────────────────────────────────
-                    _sectionHeader(context, "Today's Workouts",
-                        Icons.sports_rounded, PulseTheme.strainPrimary),
-                    workoutsAsync.when(
-                      data: (workouts) => workouts.isEmpty
-                          ? GlassCard(
-                              child: Center(
-                                child: Text(
-                                  'No workout sessions recorded today',
-                                  style: TextStyle(color: PulseTheme.secondary),
-                                ),
-                              ),
-                            )
-                          : Column(
-                              children: workouts
-                                  .map((w) => _workoutCard(context, w))
-                                  .toList(),
-                            ),
-                      loading: () => const SizedBox(
-                        height: 80,
-                        child: PulseLoadingIndicator(size: 40, message: 'Loading workouts...'),
-                      ),
-                      error: (e, _) => Text('Error: $e'),
-                    ),
-
                     const SizedBox(height: 24),
                   ],
                 ),

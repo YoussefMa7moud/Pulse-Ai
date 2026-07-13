@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme.dart';
 import '../../../widgets/animated_background.dart';
 import '../../../widgets/glass_container.dart';
+import '../../../widgets/staggered_animation.dart';
 import '../../providers/data_providers.dart';
+import '../../providers/providers.dart';
 import '../../../data/collections/workout_session.dart';
 
 class ExerciseScreen extends ConsumerWidget {
@@ -279,9 +282,49 @@ class ExerciseScreen extends ConsumerWidget {
     final workoutsAsync = ref.watch(recentWorkoutsProvider);
     final textTheme = Theme.of(context).textTheme;
     final textColor = PulseTheme.isDark ? Colors.white : Colors.black87;
+    final subColor = PulseTheme.isDark ? Colors.white70 : Colors.black54;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          'EXERCISES',
+          style: textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+            color: textColor,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.sync_rounded, color: PulseTheme.accent),
+            onPressed: () async {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+              try {
+                final syncUseCase = ref.read(syncUseCaseProvider);
+                await syncUseCase.syncAll(daysBack: 30);
+              } catch (_) {}
+              if (context.mounted) Navigator.pop(context);
+
+              ref.invalidate(recentWorkoutsProvider);
+              ref.invalidate(todayMetricsProvider);
+              ref.invalidate(todayScoresProvider);
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.person_outline, color: PulseTheme.primary),
+            onPressed: () => context.push('/profile'),
+          ),
+        ],
+      ),
       body: AnimatedGradientBackground(
         child: SafeArea(
           child: RefreshIndicator(
@@ -292,19 +335,6 @@ class ExerciseScreen extends ConsumerWidget {
             },
             child: CustomScrollView(
               slivers: [
-                SliverAppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  pinned: true,
-                  title: Text(
-                    'EXERCISES',
-                    style: textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                      color: textColor,
-                    ),
-                  ),
-                ),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                   sliver: workoutsAsync.when(
@@ -314,23 +344,58 @@ class ExerciseScreen extends ConsumerWidget {
                           hasScrollBody: false,
                           child: Center(
                             child: Padding(
-                              padding: const EdgeInsets.all(32.0),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.directions_run_outlined, size: 64, color: PulseTheme.secondary),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'No tracked exercises found',
-                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Workout sessions synced from Google Health Connect will appear here.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: PulseTheme.secondary, fontSize: 13),
-                                  ),
-                                ],
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+                              child: GlassContainer(
+                                padding: const EdgeInsets.all(24),
+                                borderColor: PulseTheme.accent.withOpacity(0.15),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(Icons.link_rounded, size: 28, color: PulseTheme.accent),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            'Connect Your Wearable Band',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: textColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const Divider(height: 24, color: Colors.white10),
+                                    Text(
+                                      'To view workouts from your band (Huawei, Zepp, Garmin, Samsung), ensure they sync to Health Connect:',
+                                      style: TextStyle(color: subColor, fontSize: 13, height: 1.4),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _buildStepRow(
+                                      '1',
+                                      'Open your band\'s companion app (e.g. Huawei Health).',
+                                      textColor,
+                                    ),
+                                    _buildStepRow(
+                                      '2',
+                                      'Go to Settings -> Privacy/Data Sharing -> Health Connect, and allow it to WRITE all metrics and workouts.',
+                                      textColor,
+                                    ),
+                                    _buildStepRow(
+                                      '3',
+                                      'In Pulse AI, tap "Link Connect (Permissions)" on the Home screen, and grant READ permissions.',
+                                      textColor,
+                                    ),
+                                    _buildStepRow(
+                                      '4',
+                                      'Tap "Sync Now" to retrieve your 14-day exercise history.',
+                                      textColor,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -351,15 +416,18 @@ class ExerciseScreen extends ConsumerWidget {
 
                             if (item is String) {
                               // Render Section Header
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 20, bottom: 8, left: 4),
-                                child: Text(
-                                  item,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w900,
-                                    color: PulseTheme.secondary,
-                                    letterSpacing: 1.5,
+                              return StaggeredFadeSlide(
+                                index: index,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 20, bottom: 8, left: 4),
+                                  child: Text(
+                                    item,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w900,
+                                      color: PulseTheme.secondary,
+                                      letterSpacing: 1.5,
+                                    ),
                                   ),
                                 ),
                               );
@@ -371,69 +439,72 @@ class ExerciseScreen extends ConsumerWidget {
                                 ? DateFormat('hh:mm a').format(w.startTime!)
                                 : '--';
 
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: GestureDetector(
-                                onTap: () => _showWorkoutDetails(context, w),
-                                child: GlassContainer(
-                                  padding: const EdgeInsets.all(16),
-                                  borderColor: PulseTheme.accent.withOpacity(0.15),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(10),
-                                        decoration: BoxDecoration(
-                                          color: PulseTheme.accent.withOpacity(0.15),
-                                          shape: BoxShape.circle,
+                            return StaggeredFadeSlide(
+                              index: index,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: GestureDetector(
+                                  onTap: () => context.push('/workout_detail', extra: w),
+                                  child: GlassContainer(
+                                    padding: const EdgeInsets.all(16),
+                                    borderColor: PulseTheme.accent.withOpacity(0.15),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            color: PulseTheme.accent.withOpacity(0.15),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(icon, color: PulseTheme.accent, size: 24),
                                         ),
-                                        child: Icon(icon, color: PulseTheme.accent, size: 24),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              w.workoutType?.toUpperCase() ?? 'EXERCISE',
-                                              style: TextStyle(
-                                                color: textColor,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 15,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              formattedTime,
-                                              style: TextStyle(
-                                                color: PulseTheme.secondary,
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Row(
-                                              children: [
-                                                Icon(Icons.timer_outlined, size: 14, color: PulseTheme.secondary),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  _formatDuration(w.durationSeconds),
-                                                  style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                w.workoutType?.toUpperCase() ?? 'EXERCISE',
+                                                style: TextStyle(
+                                                  color: textColor,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 15,
                                                 ),
-                                                const SizedBox(width: 16),
-                                                Icon(Icons.local_fire_department_outlined, size: 14, color: PulseTheme.secondary),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  w.totalCaloriesKcal != null
-                                                      ? '${w.totalCaloriesKcal!.toStringAsFixed(0)} kcal'
-                                                      : '--',
-                                                  style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                formattedTime,
+                                                style: TextStyle(
+                                                  color: PulseTheme.secondary,
+                                                  fontSize: 11,
                                                 ),
-                                              ],
-                                            ),
-                                          ],
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
+                                                  Icon(Icons.timer_outlined, size: 14, color: PulseTheme.secondary),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    _formatDuration(w.durationSeconds),
+                                                    style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+                                                  ),
+                                                  const SizedBox(width: 16),
+                                                  Icon(Icons.local_fire_department_outlined, size: 14, color: PulseTheme.secondary),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    w.totalCaloriesKcal != null
+                                                        ? '${w.totalCaloriesKcal!.toStringAsFixed(0)} kcal'
+                                                        : '--',
+                                                    style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                      Icon(Icons.chevron_right_rounded, color: PulseTheme.secondary),
-                                    ],
+                                        Icon(Icons.chevron_right_rounded, color: PulseTheme.secondary),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -464,6 +535,45 @@ class ExerciseScreen extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStepRow(String stepNumber, String text, Color textColor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: PulseTheme.accent.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              stepNumber,
+              style: TextStyle(
+                color: PulseTheme.accent,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: textColor.withOpacity(0.85),
+                fontSize: 12.5,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -426,6 +426,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           },
                         ),
                       ),
+                      ListTile(
+                        title: const Text('Widget Card Style'),
+                        trailing: DropdownButton<WidgetCardTheme>(
+                          value: ref.watch(themeSettingsProvider).widgetCardTheme,
+                          dropdownColor: PulseTheme.surface,
+                          items: WidgetCardTheme.values
+                              .map((wt) => DropdownMenuItem(
+                                  value: wt,
+                                  child: Text(
+                                    wt.name == 'glassmorphism'
+                                        ? 'Glassmorphism'
+                                        : wt.name == 'cyberpunk'
+                                            ? 'Cyberpunk Neon'
+                                            : wt.name == 'animatedAura'
+                                                ? 'Animated Aura'
+                                                : 'Minimal Stark',
+                                    style: const TextStyle(fontSize: 12),
+                                  )))
+                              .toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              ref.read(themeSettingsProvider.notifier).updateWidgetCardTheme(val);
+                            }
+                          },
+                        ),
+                      ),
                     ],
                   ),
                 ),

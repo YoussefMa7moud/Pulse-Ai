@@ -83,12 +83,12 @@ class GoogleHealthService implements HealthRepository {
       final List<HealthDataPoint> basalEnergyPoints = [];
       final List<HealthDataPoint> distancePoints = [];
       final List<HealthDataPoint> sleepPoints = [];
+      final List<HealthDataPoint> workoutPoints = [];
       
       double bodyFat = 0.0;
       double weight = 0.0;
       double spo2 = 0.0;
       double temp = 0.0;
-      int exerciseDurationMinutes = 0;
 
       for (final type in _dataTypes) {
         try {
@@ -101,11 +101,16 @@ class GoogleHealthService implements HealthRepository {
             queryStart = start.subtract(const Duration(hours: 12));
           }
 
-          final data = await _health.getHealthDataFromTypes(
+          final rawData = await _health.getHealthDataFromTypes(
             types: [type], 
             startTime: queryStart, 
             endTime: end
           );
+          final seen = <String>{};
+          final List<HealthDataPoint> data = rawData.where((p) {
+            final key = '${p.uuid}_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}';
+            return seen.add(key);
+          }).toList();
 
           debugPrint('[GoogleHealth] $type: ${data.length} points from $queryStart→$end');
 
@@ -163,9 +168,7 @@ class GoogleHealthService implements HealthRepository {
               }
               break;
             case HealthDataType.WORKOUT:
-              for (var p in data) {
-                exerciseDurationMinutes += p.dateTo.difference(p.dateFrom).inMinutes;
-              }
+              workoutPoints.addAll(data);
               break;
             default:
               break;
@@ -175,11 +178,12 @@ class GoogleHealthService implements HealthRepository {
         }
       }
 
-      // Aggregate cumulative metrics with source level deduplication
+      // Aggregate cumulative metrics with time-interval deduplication across ALL sources
       final double activeCalories = _aggregateCumulative(activeEnergyPoints);
       final double basalCalories = _aggregateCumulative(basalEnergyPoints);
       final int steps = _aggregateCumulative(stepPoints).toInt();
       final double distance = _aggregateCumulative(distancePoints);
+      final int exerciseDurationMinutes = _aggregateExerciseDuration(workoutPoints);
       
       final sleepMap = _aggregateSleep(sleepPoints);
 
@@ -279,20 +283,37 @@ class GoogleHealthService implements HealthRepository {
     final end = start.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
 
     try {
-      final healthData = await _health.getHealthDataFromTypes(types: [HealthDataType.WORKOUT], startTime: start, endTime: end);
+      final rawData = await _health.getHealthDataFromTypes(types: [HealthDataType.WORKOUT], startTime: start, endTime: end);
+      final seen = <String>{};
+      final healthData = rawData.where((p) {
+        final key = '${p.uuid}_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}';
+        return seen.add(key);
+      }).toList();
       
       return healthData.map((point) {
-        final val = point.value as WorkoutHealthValue;
+        String workoutTypeName = 'Workout';
+        double? calories;
+        double? distance;
+
+        if (point.value is WorkoutHealthValue) {
+          final val = point.value as WorkoutHealthValue;
+          workoutTypeName = _formatWorkoutType(val.workoutActivityType.name);
+          calories = val.totalEnergyBurned?.toDouble();
+          distance = val.totalDistance?.toDouble();
+        } else if (point.value is NumericHealthValue) {
+          calories = (point.value as NumericHealthValue).numericValue.toDouble();
+        }
+
         final workout = WorkoutSession(
           date: day,
         )
           ..startTime = point.dateFrom
           ..endTime = point.dateTo
-          ..workoutType = val.workoutActivityType.name
+          ..workoutType = workoutTypeName
           ..durationSeconds = point.dateTo.difference(point.dateFrom).inSeconds
-          ..totalCaloriesKcal = val.totalEnergyBurned?.toDouble()
+          ..totalCaloriesKcal = calories
           ..activityId = point.uuid
-          ..distanceMeters = val.totalDistance?.toDouble();
+          ..distanceMeters = distance;
         return workout;
       }).toList();
     } catch (e) {
@@ -305,24 +326,143 @@ class GoogleHealthService implements HealthRepository {
   // HELPERS FOR ACCURATE ACCUMULATION AND DEDUPLICATION
   // ─────────────────────────────────────────────────────────────────────────
 
+  /// Aggregates cumulative metrics (steps, calories, distance) across ALL
+  /// sources using time-interval deduplication. This eliminates double-counting
+  /// when multiple sources (phone pedometer + watch) report overlapping data.
+  ///
+  /// Algorithm:
+  /// 1. Build intervals (dateFrom, dateTo, value) from every data point.
+  /// 2. Sort by start time, then longest interval first (so summary records
+  ///    take priority over granular sub-records).
+  /// 3. Track already-covered time ranges.
+  /// 4. For each interval, only count the portion NOT already covered.
   double _aggregateCumulative(List<HealthDataPoint> points) {
     if (points.isEmpty) return 0.0;
 
-    final sourceSums = <String, double>{};
+    // Build typed intervals
+    final intervals = <_TimeInterval>[];
     for (var p in points) {
-      final src = p.sourceId ?? p.sourceName ?? 'unknown';
-      final val = p.value is NumericHealthValue 
-          ? (p.value as NumericHealthValue).numericValue.toDouble() 
+      final val = p.value is NumericHealthValue
+          ? (p.value as NumericHealthValue).numericValue.toDouble()
           : 0.0;
-      sourceSums[src] = (sourceSums[src] ?? 0.0) + val;
+      if (val <= 0) continue;
+      // Skip zero-length intervals
+      if (!p.dateTo.isAfter(p.dateFrom)) continue;
+      intervals.add(_TimeInterval(p.dateFrom, p.dateTo, val));
+    }
+    if (intervals.isEmpty) return 0.0;
+
+    // Sort: earliest start first, then longest interval first (so summaries
+    // are processed before their sub-records, reducing fragmentation).
+    intervals.sort((a, b) {
+      final cmp = a.start.compareTo(b.start);
+      if (cmp != 0) return cmp;
+      // Longer intervals first when same start time
+      return b.durationMs.compareTo(a.durationMs);
+    });
+
+    // Covered ranges – maintained sorted and non-overlapping
+    final covered = <_TimeInterval>[];
+
+    double total = 0.0;
+
+    for (final iv in intervals) {
+      final uncoveredFraction = _uncoveredFraction(iv, covered);
+      if (uncoveredFraction > 0) {
+        total += iv.value * uncoveredFraction;
+        _addCoveredRange(covered, iv);
+      }
     }
 
-    if (sourceSums.isEmpty) return 0.0;
+    debugPrint('[GoogleHealth] _aggregateCumulative: ${points.length} points → '
+        '${intervals.length} intervals → total=$total');
+    return total;
+  }
 
-    final bestSource = _findBestSource(sourceSums.keys) ??
-        sourceSums.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+  /// Calculates what fraction of [iv] is NOT already covered by [covered].
+  /// Returns a value between 0.0 and 1.0.
+  double _uncoveredFraction(_TimeInterval iv, List<_TimeInterval> covered) {
+    if (covered.isEmpty) return 1.0;
 
-    return sourceSums[bestSource] ?? 0.0;
+    final ivStartMs = iv.start.millisecondsSinceEpoch;
+    final ivEndMs = iv.end.millisecondsSinceEpoch;
+    final ivDuration = ivEndMs - ivStartMs;
+    if (ivDuration <= 0) return 0.0;
+
+    int coveredMs = 0;
+    for (final c in covered) {
+      final cStartMs = c.start.millisecondsSinceEpoch;
+      final cEndMs = c.end.millisecondsSinceEpoch;
+      // No overlap
+      if (cEndMs <= ivStartMs || cStartMs >= ivEndMs) continue;
+      // Overlap region
+      final overlapStart = cStartMs > ivStartMs ? cStartMs : ivStartMs;
+      final overlapEnd = cEndMs < ivEndMs ? cEndMs : ivEndMs;
+      coveredMs += overlapEnd - overlapStart;
+    }
+
+    if (coveredMs >= ivDuration) return 0.0;
+    return (ivDuration - coveredMs) / ivDuration;
+  }
+
+  /// Adds a new interval to [covered] and merges any overlapping/adjacent ranges.
+  void _addCoveredRange(List<_TimeInterval> covered, _TimeInterval iv) {
+    covered.add(_TimeInterval(iv.start, iv.end, 0));
+    // Sort by start
+    covered.sort((a, b) => a.start.compareTo(b.start));
+    // Merge overlapping / adjacent
+    int i = 0;
+    while (i < covered.length - 1) {
+      if (!covered[i + 1].start.isAfter(covered[i].end)) {
+        // Merge: extend end if needed
+        final mergedEnd =
+            covered[i].end.isAfter(covered[i + 1].end) ? covered[i].end : covered[i + 1].end;
+        covered[i] = _TimeInterval(covered[i].start, mergedEnd, 0);
+        covered.removeAt(i + 1);
+      } else {
+        i++;
+      }
+    }
+  }
+
+  /// Deduplicates exercise/workout duration using the same time-interval
+  /// approach so overlapping workout records aren't double-counted.
+  int _aggregateExerciseDuration(List<HealthDataPoint> workoutPoints) {
+    if (workoutPoints.isEmpty) return 0;
+
+    final intervals = <_TimeInterval>[];
+    for (var p in workoutPoints) {
+      if (!p.dateTo.isAfter(p.dateFrom)) continue;
+      intervals.add(_TimeInterval(p.dateFrom, p.dateTo, 1.0));
+    }
+    if (intervals.isEmpty) return 0;
+
+    // Sort by start, then longest first
+    intervals.sort((a, b) {
+      final cmp = a.start.compareTo(b.start);
+      if (cmp != 0) return cmp;
+      return b.durationMs.compareTo(a.durationMs);
+    });
+
+    // Merge all into non-overlapping ranges, then sum their durations
+    final merged = <_TimeInterval>[intervals.first];
+    for (int i = 1; i < intervals.length; i++) {
+      final last = merged.last;
+      if (!intervals[i].start.isAfter(last.end)) {
+        // Overlaps – extend
+        final mergedEnd =
+            last.end.isAfter(intervals[i].end) ? last.end : intervals[i].end;
+        merged[merged.length - 1] = _TimeInterval(last.start, mergedEnd, 1.0);
+      } else {
+        merged.add(intervals[i]);
+      }
+    }
+
+    int totalMinutes = 0;
+    for (final m in merged) {
+      totalMinutes += m.end.difference(m.start).inMinutes;
+    }
+    return totalMinutes;
   }
 
   Map<String, int> _aggregateSleep(List<HealthDataPoint> sleepPoints) {
@@ -417,14 +557,15 @@ class GoogleHealthService implements HealthRepository {
   String? _findBestSource(Iterable<String> sources) {
     if (sources.isEmpty) return null;
 
-    // 1. Strictly prioritize Huawei Health app (contains 'huawei')
+    // 1. Strictly prioritize Huawei Health and Honor app (contains 'huawei' or 'honor')
     for (final src in sources) {
-      if (src.toLowerCase().contains('huawei')) {
+      final sLower = src.toLowerCase();
+      if (sLower.contains('huawei') || sLower.contains('honor')) {
         return src;
       }
     }
 
-    // 2. Next, check for specific wearable apps
+    // 2. Next, check for specific wearable companion apps
     for (final src in sources) {
       final sLower = src.toLowerCase();
       if (sLower.contains('samsung') ||
@@ -433,7 +574,13 @@ class GoogleHealthService implements HealthRepository {
           sLower.contains('fitbit') ||
           sLower.contains('mi') ||
           sLower.contains('xiaomi') ||
-          sLower.contains('garmin')) {
+          sLower.contains('garmin') ||
+          sLower.contains('polar') ||
+          sLower.contains('suunto') ||
+          sLower.contains('wearable') ||
+          sLower.contains('watch') ||
+          sLower.contains('band') ||
+          sLower.contains('wear')) {
         return src;
       }
     }
@@ -450,4 +597,43 @@ class GoogleHealthService implements HealthRepository {
 
     return null;
   }
+
+  /// Converts Health Connect workout type enum names (e.g. EXERCISE_TYPE_WALKING,
+  /// RUNNING, OTHER) into human-readable labels (e.g. "Walking", "Running",
+  /// "Other Exercise").
+  String _formatWorkoutType(String rawType) {
+    // Strip common prefixes
+    String cleaned = rawType;
+    const prefixes = ['EXERCISE_TYPE_', 'WORKOUT_TYPE_', 'ACTIVITY_TYPE_'];
+    for (final prefix in prefixes) {
+      if (cleaned.startsWith(prefix)) {
+        cleaned = cleaned.substring(prefix.length);
+        break;
+      }
+    }
+
+    // Handle special one-word cases
+    if (cleaned == 'OTHER' || cleaned == 'UNKNOWN') {
+      return 'Other Exercise';
+    }
+
+    // Convert SCREAMING_SNAKE_CASE → Title Case
+    // e.g. INDOOR_CYCLING → Indoor Cycling
+    final words = cleaned.split('_').where((w) => w.isNotEmpty).map((word) {
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    });
+
+    return words.join(' ');
+  }
+}
+
+/// Lightweight helper class for time-interval deduplication.
+class _TimeInterval {
+  final DateTime start;
+  final DateTime end;
+  final double value;
+
+  const _TimeInterval(this.start, this.end, this.value);
+
+  int get durationMs => end.millisecondsSinceEpoch - start.millisecondsSinceEpoch;
 }

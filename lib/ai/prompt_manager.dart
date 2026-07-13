@@ -21,7 +21,11 @@ class PromptManager {
       'like a world-class sports scientist meets elite health coach. '
       'You always ground your advice in the user\'s actual physiological data '
       'provided in the context. Never give generic advice — always reference '
-      'specific numbers from the data. Do not use emojis or introductory filler.';
+      'specific numbers from the data. Do not use emojis or introductory filler. '
+      'IMPORTANT: If today\'s data is empty, 0, or incomplete (e.g., steps or active minutes is 0), '
+      'do not treat it as inactivity. Recognize that it is a pending sync or early in the day. '
+      'Instead, look at the user\'s 7-day trend/baseline to project targets, recommend plans, '
+      'and advise on what they should do today to hit their typical standards.';
 
   // ─────────────────────────────────────────────────────────────────────────
   // CONTEXT BUILDER — converts all Huawei health data into a rich text block
@@ -35,6 +39,7 @@ class PromptManager {
     required List<DailyMetric> history,
     List<WorkoutSession>? recentWorkouts,
     DailyScore? todayScore,
+    List<DailyScore>? historyScores,
     UserProfile? profile,
   }) {
     final sb = StringBuffer();
@@ -249,7 +254,7 @@ class PromptManager {
 
     // ── 7-day Trend Summary ──────────────────────────────────────────────────
     if (history.isNotEmpty) {
-      sb.writeln('=== 7-DAY TREND ===');
+      sb.writeln('=== 7-DAY TREND (METRICS & SCORES) ===');
       final recent7 = history.take(7).toList();
       for (final day in recent7) {
         final dateStr = '${day.date.month}/${day.date.day}';
@@ -260,11 +265,21 @@ class PromptManager {
         final sleep = day.totalSleepMinutes != null
             ? '${(day.totalSleepMinutes! / 60).toStringAsFixed(1)}h sleep'
             : '-';
-        final stress = day.stressScore != null
-            ? 'stress ${day.stressScore!.toStringAsFixed(0)}'
-            : '';
-        sb.writeln('  $dateStr: $steps | $rhr | $sleep'
-            '${stress.isNotEmpty ? " | $stress" : ""}');
+
+        // Find matching score for this date
+        final matchingScore = historyScores?.firstWhere(
+          (s) => s.date.year == day.date.year &&
+              s.date.month == day.date.month &&
+              s.date.day == day.date.day,
+          orElse: () => DailyScore(date: day.date),
+        );
+
+        final rec = matchingScore?.recoveryScore != null ? 'Rec: ${matchingScore!.recoveryScore!.toInt()}%' : '-';
+        final sl = matchingScore?.sleepScore != null ? 'Sleep: ${matchingScore!.sleepScore!.toInt()}%' : '-';
+        final str = matchingScore?.strainScore != null ? 'Strain: ${matchingScore!.strainScore!.toStringAsFixed(1)}' : '-';
+        final en = matchingScore?.energyScore != null ? 'Energy: ${matchingScore!.energyScore!.toInt()}%' : '-';
+
+        sb.writeln('  $dateStr: $steps | $rhr | $sleep | $rec | $sl | $str | $en');
       }
       sb.writeln();
     }
@@ -321,7 +336,7 @@ class PromptManager {
       '3. Recovery & Cardiovascular Health, '
       '4. Stress & Mental Wellbeing, '
       '5. Overall Health Trajectory. '
-      'Each insight must reference specific values from the user\'s data. '
+      'Each insight must reference specific values from the user\'s data (referencing historical trend values if today is not yet synced). '
       'Format: 5 paragraphs separated by "|||" — no numbering, no intro text, '
       'each under 2 sentences.';
 

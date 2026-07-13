@@ -27,7 +27,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
     <application
-        android:label="flutter_application_1"
+        android:label="Pulse AI"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:extractNativeLibs="true">
@@ -72,26 +72,61 @@
 
         <activity android:name="androidx.health.connect.client.PermissionActivity" android:exported="true" />
 
-        <!-- Widget Receivers -->
-        <receiver android:name=".PulseWidgetProvider" android:exported="true">
+        <!-- Widget Receivers (8 Premium Themed Widgets) -->
+        <receiver android:name=".PulseRecoveryWidgetProvider" android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info" />
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_recovery_info" />
         </receiver>
 
-        <receiver android:name=".PulseLargeWidgetProvider" android:exported="true">
+        <receiver android:name=".PulseSleepWidgetProvider" android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_large" />
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_sleep_info" />
         </receiver>
 
-        <receiver android:name=".PulseSmallWidgetProvider" android:exported="true">
+        <receiver android:name=".PulseStrainWidgetProvider" android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_info_small" />
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_strain_info" />
+        </receiver>
+
+        <receiver android:name=".PulseReadinessWidgetProvider" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_readiness_info" />
+        </receiver>
+
+        <receiver android:name=".PulseStressWidgetProvider" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_stress_info" />
+        </receiver>
+
+        <receiver android:name=".PulseStepsWidgetProvider" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_steps_info" />
+        </receiver>
+
+        <receiver android:name=".PulseHeartWidgetProvider" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_heart_info" />
+        </receiver>
+
+        <receiver android:name=".PulseOverviewWidgetProvider" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_overview_info" />
         </receiver>
 
         <!-- Don't delete the meta-data below.

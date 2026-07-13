@@ -40,14 +40,20 @@ class AiService {
     final metric = todayMetric ?? await db.getMetricForDay(DateTime.now())
         ?? DailyMetric(date: DateTime.utc(
             DateTime.now().year, DateTime.now().month, DateTime.now().day));
+    
+    // Auto-fetch today's score if not explicitly passed
+    final score = todayScore ?? await db.getScoreForDay(DateTime.now());
+
     final hist = history ?? await db.getRecentMetrics(days: 30);
+    final histScores = await db.getRecentScores(days: 30);
     final ws = workouts ?? await db.getRecentWorkouts(days: 14);
 
     return PromptManager.buildHealthContext(
       today: metric,
       history: hist,
       recentWorkouts: ws,
-      todayScore: todayScore,
+      todayScore: score,
+      historyScores: histScores,
       profile: profile,
     );
   }
