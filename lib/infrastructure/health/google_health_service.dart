@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:intl/intl.dart';
 import '../../domain/repositories/health_repository.dart';
 import '../../data/collections/daily_metric.dart';
 import '../../data/collections/workout_session.dart';
@@ -279,18 +280,49 @@ class GoogleHealthService implements HealthRepository {
 
   @override
   Future<List<WorkoutSession>> fetchWorkoutsForDay(DateTime day) async {
-    final start = DateTime(day.year, day.month, day.day);
-    final end = start.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
+    // Standardize the query window using the local day
+    final localStart = DateTime(day.year, day.month, day.day);
+    final queryStart = localStart.subtract(const Duration(days: 1));
+    final queryEnd = localStart.add(const Duration(days: 2)).subtract(const Duration(milliseconds: 1));
+
+    debugPrint('[GoogleHealthService] fetchWorkoutsForDay triggered for day: ${DateFormat('yyyy-MM-dd').format(day)}');
+    debugPrint('[GoogleHealthService] Query Range: $queryStart to $queryEnd');
 
     try {
-      final rawData = await _health.getHealthDataFromTypes(types: [HealthDataType.WORKOUT], startTime: start, endTime: end);
+      final rawData = await _health.getHealthDataFromTypes(
+        types: [HealthDataType.WORKOUT],
+        startTime: queryStart,
+        endTime: queryEnd,
+      );
+      
+      debugPrint('[GoogleHealthService] rawData count returned: ${rawData.length}');
+      
       final seen = <String>{};
       final healthData = rawData.where((p) {
-        final key = '${p.uuid}_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}';
-        return seen.add(key);
+        // Fallback to a compound key if UUID is empty/null, avoiding complete suppression
+        final uuid = p.uuid.isEmpty ? 'gen_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}' : p.uuid;
+        final key = '${uuid}_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}';
+        final isNew = seen.add(key);
+        debugPrint('[GoogleHealthService] Workout point: uuid=${p.uuid}, dateFrom=${p.dateFrom}, dateTo=${p.dateTo}, isDuplicate=${!isNew}');
+        return isNew;
       }).toList();
       
-      return healthData.map((point) {
+      // Determine target date in YYYY-MM-DD formats for BOTH local and UTC to avoid boundary filter loss
+      final dayStrLocal = DateFormat('yyyy-MM-dd').format(day.toLocal());
+      final dayStrUtc = DateFormat('yyyy-MM-dd').format(day.toUtc());
+
+      final filteredData = healthData.where((point) {
+        final pointLocalStr = DateFormat('yyyy-MM-dd').format(point.dateFrom.toLocal());
+        final pointUtcStr = DateFormat('yyyy-MM-dd').format(point.dateFrom.toUtc());
+        
+        final matches = (pointLocalStr == dayStrLocal) || (pointUtcStr == dayStrUtc);
+        debugPrint('[GoogleHealthService] Filtering workout: pointLocalStr=$pointLocalStr, pointUtcStr=$pointUtcStr, targetDayLocal=$dayStrLocal, targetDayUtc=$dayStrUtc, matches=$matches');
+        return matches;
+      }).toList();
+
+      debugPrint('[GoogleHealthService] Filtered workouts count: ${filteredData.length}');
+
+      return filteredData.map((point) {
         String workoutTypeName = 'Workout';
         double? calories;
         double? distance;
@@ -300,12 +332,17 @@ class GoogleHealthService implements HealthRepository {
           workoutTypeName = _formatWorkoutType(val.workoutActivityType.name);
           calories = val.totalEnergyBurned?.toDouble();
           distance = val.totalDistance?.toDouble();
+          debugPrint('[GoogleHealthService] Workout details: type=$workoutTypeName, calories=$calories kcal, distance=$distance m');
         } else if (point.value is NumericHealthValue) {
           calories = (point.value as NumericHealthValue).numericValue.toDouble();
+          debugPrint('[GoogleHealthService] Numeric workout details: calories=$calories kcal');
         }
 
+        final pointLocal = point.dateFrom.toLocal();
+        final workoutDate = DateTime(pointLocal.year, pointLocal.month, pointLocal.day);
+
         final workout = WorkoutSession(
-          date: day,
+          date: workoutDate,
         )
           ..startTime = point.dateFrom
           ..endTime = point.dateTo
@@ -316,8 +353,8 @@ class GoogleHealthService implements HealthRepository {
           ..distanceMeters = distance;
         return workout;
       }).toList();
-    } catch (e) {
-      debugPrint('[GoogleHealthService] Error fetching workouts: $e');
+    } catch (e, stack) {
+      debugPrint('[GoogleHealthService] Error fetching workouts: $e\n$stack');
       return [];
     }
   }

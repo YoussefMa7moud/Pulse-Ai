@@ -187,23 +187,25 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
           ),
         ),
         const SizedBox(height: 24),
-        const Center(
+        Center(
           child: Text(
             'VERIFY EMAIL',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.5),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: PulseTheme.primary, letterSpacing: 1.5),
           ),
         ),
         const SizedBox(height: 12),
         Text(
           'We have sent a verification link to your email address:\n${_emailController.text.trim()}',
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 14, color: Colors.white70, height: 1.5),
+          style: TextStyle(fontSize: 14, color: PulseTheme.secondary, height: 1.5),
         ),
         const SizedBox(height: 20),
-        const Text(
-          'Please verify your email, then return here to log in.',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 13, color: Colors.white54, fontStyle: FontStyle.italic),
+        Center(
+          child: Text(
+            'Please verify your email, then return here to log in.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: PulseTheme.secondary.withOpacity(0.8), fontStyle: FontStyle.italic),
+          ),
         ),
         const SizedBox(height: 32),
         ElevatedButton(
@@ -258,10 +260,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
           Center(
             child: Text(
               _isLogin ? 'PULSE AI' : 'JOIN PULSE AI',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w900,
-                color: Colors.white,
+                color: PulseTheme.primary,
                 letterSpacing: 2,
               ),
             ),
@@ -309,7 +311,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
           if (!_isLogin) ...[
             TextFormField(
               controller: _nameController,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: PulseTheme.primary),
               decoration: InputDecoration(
                 labelText: 'NAME',
                 labelStyle: TextStyle(color: PulseTheme.secondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1),
@@ -329,7 +331,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: PulseTheme.primary),
             decoration: InputDecoration(
               labelText: 'EMAIL',
               labelStyle: TextStyle(color: PulseTheme.secondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1),
@@ -350,7 +352,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
           TextFormField(
             controller: _passwordController,
             obscureText: true,
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: PulseTheme.primary),
             decoration: InputDecoration(
               labelText: 'PASSWORD',
               labelStyle: TextStyle(color: PulseTheme.secondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1),
@@ -371,7 +373,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
             TextFormField(
               controller: _confirmPasswordController,
               obscureText: true,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: PulseTheme.primary),
               decoration: InputDecoration(
                 labelText: 'CONFIRM PASSWORD',
                 labelStyle: TextStyle(color: PulseTheme.secondary, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1),
@@ -394,7 +396,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
                   child: DropdownButtonFormField<int>(
                     value: _age,
                     dropdownColor: PulseTheme.surface,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(color: PulseTheme.primary, fontSize: 16),
                     decoration: InputDecoration(
                       labelText: 'AGE',
                       labelStyle: TextStyle(color: PulseTheme.secondary, fontSize: 11, fontWeight: FontWeight.bold),
@@ -411,7 +413,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
                   child: DropdownButtonFormField<String>(
                     value: _gender,
                     dropdownColor: PulseTheme.surface,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(color: PulseTheme.primary, fontSize: 16),
                     decoration: InputDecoration(
                       labelText: 'GENDER',
                       labelStyle: TextStyle(color: PulseTheme.secondary, fontSize: 11, fontWeight: FontWeight.bold),
@@ -434,7 +436,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
                   child: DropdownButtonFormField<double>(
                     value: _heightCm,
                     dropdownColor: PulseTheme.surface,
-                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                    style: TextStyle(color: PulseTheme.primary, fontSize: 15),
                     decoration: InputDecoration(
                       labelText: 'HEIGHT',
                       labelStyle: TextStyle(color: PulseTheme.secondary, fontSize: 11, fontWeight: FontWeight.bold),
@@ -454,7 +456,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
                   child: DropdownButtonFormField<double>(
                     value: _weightKg,
                     dropdownColor: PulseTheme.surface,
-                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                    style: TextStyle(color: PulseTheme.primary, fontSize: 15),
                     decoration: InputDecoration(
                       labelText: 'WEIGHT',
                       labelStyle: TextStyle(color: PulseTheme.secondary, fontSize: 11, fontWeight: FontWeight.bold),
@@ -477,7 +479,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
             DropdownButtonFormField<String>(
               value: _primaryGoal,
               dropdownColor: PulseTheme.surface,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
+              style: TextStyle(color: PulseTheme.primary, fontSize: 15),
               decoration: InputDecoration(
                 labelText: 'PRIMARY GOAL',
                 labelStyle: TextStyle(color: PulseTheme.secondary, fontSize: 11, fontWeight: FontWeight.bold),

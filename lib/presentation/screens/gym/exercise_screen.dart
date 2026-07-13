@@ -6,12 +6,47 @@ import '../../../core/theme.dart';
 import '../../../widgets/animated_background.dart';
 import '../../../widgets/glass_container.dart';
 import '../../../widgets/staggered_animation.dart';
+import '../../../widgets/pulse_loader.dart';
+import '../../../utils/sync_helper.dart';
 import '../../providers/data_providers.dart';
 import '../../providers/providers.dart';
+import '../../../use_cases/sync_use_case.dart';
 import '../../../data/collections/workout_session.dart';
 
-class ExerciseScreen extends ConsumerWidget {
+class ExerciseScreen extends ConsumerStatefulWidget {
   const ExerciseScreen({super.key});
+
+  @override
+  ConsumerState<ExerciseScreen> createState() => _ExerciseScreenState();
+}
+
+class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
+  bool _isSyncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncAndRefresh());
+  }
+
+  Future<void> _syncAndRefresh() async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+    try {
+      final syncUseCase = ref.read(syncUseCaseProvider);
+      final result = await syncUseCase.syncAll(daysBack: 30);
+      ref.read(syncResultProvider.notifier).state = result;
+    } catch (e) {
+      ref.read(syncResultProvider.notifier).state = SyncResult(
+        success: false,
+        error: e.toString(),
+        completedAt: DateTime.now(),
+      );
+    }
+    if (!mounted) return;
+    ref.invalidate(recentWorkoutsProvider);
+    setState(() => _isSyncing = false);
+  }
 
   IconData _getSportIcon(String? type) {
     if (type == null) return Icons.sports_rounded;
@@ -39,214 +74,14 @@ class ExerciseScreen extends ConsumerWidget {
     return '${mins}m';
   }
 
-  String _formatPace(double? minPerKm) {
-    if (minPerKm == null || minPerKm <= 0) return '--';
-    final mins = minPerKm.floor();
-    final secs = ((minPerKm - mins) * 60).round();
-    return '$mins:${secs.toString().padLeft(2, '0')} /km';
-  }
-
-  void _showWorkoutDetails(BuildContext context, WorkoutSession workout) {
-    final textTheme = Theme.of(context).textTheme;
-    final textColor = PulseTheme.isDark ? Colors.white : Colors.black87;
-    final subColor = PulseTheme.isDark ? Colors.white70 : Colors.black54;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: GlassContainer(
-            padding: const EdgeInsets.all(24),
-            borderColor: PulseTheme.accent.withOpacity(0.2),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Modal Handle
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white24,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Title Header
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: PulseTheme.accent.withOpacity(0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        _getSportIcon(workout.workoutType),
-                        color: PulseTheme.accent,
-                        size: 32,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            workout.workoutType?.toUpperCase() ?? 'TRACKED EXERCISE',
-                            style: textTheme.titleLarge?.copyWith(
-                              color: textColor,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.0,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            workout.startTime != null
-                                ? DateFormat('EEEE, MMMM d • hh:mm a').format(workout.startTime!)
-                                : '--',
-                            style: TextStyle(color: subColor, fontSize: 13),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close_rounded, color: subColor),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const Divider(height: 32, color: Colors.white10),
-
-                // Grid of Stats
-                GridView(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 2.2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  children: [
-                    _buildDetailTile(
-                      'Duration',
-                      _formatDuration(workout.durationSeconds),
-                      Icons.timer_rounded,
-                      PulseTheme.strainPrimary,
-                    ),
-                    _buildDetailTile(
-                      'Calories Burned',
-                      workout.totalCaloriesKcal != null
-                          ? '${workout.totalCaloriesKcal!.toStringAsFixed(0)} kcal'
-                          : '--',
-                      Icons.local_fire_department_rounded,
-                      PulseTheme.recoveryLow,
-                    ),
-                    _buildDetailTile(
-                      'Average HR',
-                      workout.avgHeartRate != null
-                          ? '${workout.avgHeartRate!.toStringAsFixed(0)} bpm'
-                          : '--',
-                      Icons.favorite_rounded,
-                      PulseTheme.recoveryHigh,
-                    ),
-                    _buildDetailTile(
-                      'Peak HR',
-                      workout.maxHeartRate != null
-                          ? '${workout.maxHeartRate!.toStringAsFixed(0)} bpm'
-                          : '--',
-                      Icons.trending_up_rounded,
-                      PulseTheme.recoveryLow,
-                    ),
-                    if (workout.distanceMeters != null && workout.distanceMeters! > 0) ...[
-                      _buildDetailTile(
-                        'Distance',
-                        '${(workout.distanceMeters! / 1000).toStringAsFixed(2)} km',
-                        Icons.map_rounded,
-                        PulseTheme.accent,
-                      ),
-                      _buildDetailTile(
-                        'Average Pace',
-                        _formatPace(workout.avgPaceMinPerKm),
-                        Icons.speed_rounded,
-                        Colors.greenAccent,
-                      ),
-                    ],
-                    if (workout.avgSpeedMps != null && workout.avgSpeedMps! > 0) ...[
-                      _buildDetailTile(
-                        'Avg Speed',
-                        '${(workout.avgSpeedMps! * 3.6).toStringAsFixed(1)} km/h',
-                        Icons.trending_up_rounded,
-                        PulseTheme.accent,
-                      ),
-                    ],
-                    if (workout.totalElevationGainMeters != null && workout.totalElevationGainMeters! > 0) ...[
-                      _buildDetailTile(
-                        'Elevation Gain',
-                        '+${workout.totalElevationGainMeters!.toStringAsFixed(0)} m',
-                        Icons.landscape_rounded,
-                        Colors.tealAccent,
-                      ),
-                    ],
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDetailTile(String label, String value, IconData icon, Color color) {
-    final titleColor = PulseTheme.isDark ? Colors.white : Colors.black87;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label.toUpperCase(),
-                  style: TextStyle(color: PulseTheme.secondary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.8),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: TextStyle(color: titleColor, fontSize: 15, fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  String _formatSportTitle(String? type) {
+    if (type == null || type.isEmpty) return 'Exercise';
+    return type.split(' ').map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}').join(' ');
   }
 
   Map<String, List<WorkoutSession>> _groupWorkoutsByDate(List<WorkoutSession> workouts) {
     final groups = <String, List<WorkoutSession>>{};
-    
-    // Sort workouts by start time descending
+
     final sorted = List<WorkoutSession>.from(workouts)
       ..sort((a, b) {
         final aTime = a.startTime ?? a.date;
@@ -261,24 +96,24 @@ class ExerciseScreen extends ConsumerWidget {
     for (var w in sorted) {
       final wTime = w.startTime ?? w.date;
       final wDayStr = DateFormat('yyyy-MM-dd').format(wTime);
-      
+
       String header;
       if (wDayStr == todayStr) {
-        header = 'TODAY';
+        header = 'Today';
       } else if (wDayStr == yesterdayStr) {
-        header = 'YESTERDAY';
+        header = 'Yesterday';
       } else {
-        header = DateFormat('EEEE, MMMM d, yyyy').format(wTime).toUpperCase();
+        header = DateFormat('EEEE, MMMM d').format(wTime);
       }
-      
+
       groups.putIfAbsent(header, () => []).add(w);
     }
-    
+
     return groups;
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final workoutsAsync = ref.watch(recentWorkoutsProvider);
     final textTheme = Theme.of(context).textTheme;
     final textColor = PulseTheme.isDark ? Colors.white : Colors.black87;
@@ -290,33 +125,20 @@ class ExerciseScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          'EXERCISES',
+          'Exercises',
           style: textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
+            letterSpacing: 0.5,
             color: textColor,
           ),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.sync_rounded, color: PulseTheme.accent),
-            onPressed: () async {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => const Center(
-                  child: CircularProgressIndicator(),
-                ),
-              );
-              try {
-                final syncUseCase = ref.read(syncUseCaseProvider);
-                await syncUseCase.syncAll(daysBack: 30);
-              } catch (_) {}
-              if (context.mounted) Navigator.pop(context);
-
-              ref.invalidate(recentWorkoutsProvider);
-              ref.invalidate(todayMetricsProvider);
-              ref.invalidate(todayScoresProvider);
+            icon: _isSyncing
+                ? SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: PulseTheme.accent))
+                : Icon(Icons.sync_rounded, color: PulseTheme.accent),
+            onPressed: _isSyncing ? null : () async {
+              await runWithSyncOverlay(context, _syncAndRefresh, message: 'Syncing workouts...');
             },
           ),
           IconButton(
@@ -330,16 +152,35 @@ class ExerciseScreen extends ConsumerWidget {
           child: RefreshIndicator(
             color: PulseTheme.primary,
             backgroundColor: PulseTheme.surfaceLight,
-            onRefresh: () async {
-              ref.invalidate(recentWorkoutsProvider);
-            },
+            onRefresh: _syncAndRefresh,
             child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
+
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                   sliver: workoutsAsync.when(
                     data: (workouts) {
-                      if (workouts.isEmpty) {
+                      if (workouts.isEmpty && !_isSyncing) {
+                        final syncResult = ref.watch(syncResultProvider);
+                        String titleText = 'No Workouts Found';
+                        IconData titleIcon = Icons.fitness_center_rounded;
+                        Color statusColor = PulseTheme.accent;
+                        String descriptionText = 'No exercise sessions were found in your Health Connect history for the last 30 days. Start a tracked session on your wearable app and sync again.';
+
+                        if (syncResult != null) {
+                          if (!syncResult.success) {
+                            titleText = 'Sync Connection Error';
+                            titleIcon = Icons.error_outline_rounded;
+                            statusColor = PulseTheme.recoveryLow;
+                            descriptionText = 'Connection failed: ${syncResult.error}. Please ensure Health Connect is installed, active, and permissions are granted for Exercise/Workouts.';
+                          } else {
+                            titleText = 'No Workouts in History';
+                            titleIcon = Icons.info_outline_rounded;
+                            descriptionText = 'Health Connect did not return any workouts for the last 30 days. Note: daily steps are fetched separately and do not register as individual workout sessions unless you explicitly track them in your companion app.';
+                          }
+                        }
+
                         return SliverFillRemaining(
                           hasScrollBody: false,
                           child: Center(
@@ -347,18 +188,18 @@ class ExerciseScreen extends ConsumerWidget {
                               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
                               child: GlassContainer(
                                 padding: const EdgeInsets.all(24),
-                                borderColor: PulseTheme.accent.withOpacity(0.15),
+                                borderColor: statusColor.withOpacity(0.15),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
                                     Row(
                                       children: [
-                                        Icon(Icons.link_rounded, size: 28, color: PulseTheme.accent),
+                                        Icon(titleIcon, size: 28, color: statusColor),
                                         const SizedBox(width: 12),
                                         Expanded(
                                           child: Text(
-                                            'Connect Your Wearable Band',
+                                            titleText,
                                             style: TextStyle(
                                               fontSize: 18,
                                               fontWeight: FontWeight.bold,
@@ -370,29 +211,19 @@ class ExerciseScreen extends ConsumerWidget {
                                     ),
                                     const Divider(height: 24, color: Colors.white10),
                                     Text(
-                                      'To view workouts from your band (Huawei, Zepp, Garmin, Samsung), ensure they sync to Health Connect:',
+                                      descriptionText,
                                       style: TextStyle(color: subColor, fontSize: 13, height: 1.4),
                                     ),
                                     const SizedBox(height: 16),
-                                    _buildStepRow(
-                                      '1',
-                                      'Open your band\'s companion app (e.g. Huawei Health).',
-                                      textColor,
-                                    ),
-                                    _buildStepRow(
-                                      '2',
-                                      'Go to Settings -> Privacy/Data Sharing -> Health Connect, and allow it to WRITE all metrics and workouts.',
-                                      textColor,
-                                    ),
-                                    _buildStepRow(
-                                      '3',
-                                      'In Pulse AI, tap "Link Connect (Permissions)" on the Home screen, and grant READ permissions.',
-                                      textColor,
-                                    ),
-                                    _buildStepRow(
-                                      '4',
-                                      'Tap "Sync Now" to retrieve your 14-day exercise history.',
-                                      textColor,
+                                    ElevatedButton.icon(
+                                      onPressed: _syncAndRefresh,
+                                      icon: const Icon(Icons.sync_rounded),
+                                      label: const Text('Sync Workouts'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: statusColor,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -402,8 +233,15 @@ class ExerciseScreen extends ConsumerWidget {
                         );
                       }
 
+                      if (workouts.isEmpty) {
+                        return const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: PulseLoadingIndicator(message: 'Loading workouts...'),
+                        );
+                      }
+
                       final grouped = _groupWorkoutsByDate(workouts);
-                      final flatList = [];
+                      final flatList = <Object>[];
                       grouped.forEach((date, list) {
                         flatList.add(date);
                         flatList.addAll(list);
@@ -415,18 +253,17 @@ class ExerciseScreen extends ConsumerWidget {
                             final item = flatList[index];
 
                             if (item is String) {
-                              // Render Section Header
                               return StaggeredFadeSlide(
                                 index: index,
                                 child: Padding(
-                                  padding: const EdgeInsets.only(top: 20, bottom: 8, left: 4),
+                                  padding: EdgeInsets.only(top: index == 0 ? 8 : 24, bottom: 10, left: 4),
                                   child: Text(
                                     item,
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w900,
-                                      color: PulseTheme.secondary,
-                                      letterSpacing: 1.5,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: textColor,
+                                      letterSpacing: 0.2,
                                     ),
                                   ),
                                 ),
@@ -435,8 +272,9 @@ class ExerciseScreen extends ConsumerWidget {
 
                             final w = item as WorkoutSession;
                             final icon = _getSportIcon(w.workoutType);
+                            final sportTitle = _formatSportTitle(w.workoutType);
                             final formattedTime = w.startTime != null
-                                ? DateFormat('hh:mm a').format(w.startTime!)
+                                ? DateFormat('h:mm a').format(w.startTime!)
                                 : '--';
 
                             return StaggeredFadeSlide(
@@ -451,12 +289,12 @@ class ExerciseScreen extends ConsumerWidget {
                                     child: Row(
                                       children: [
                                         Container(
-                                          padding: const EdgeInsets.all(10),
+                                          padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
                                             color: PulseTheme.accent.withOpacity(0.15),
                                             shape: BoxShape.circle,
                                           ),
-                                          child: Icon(icon, color: PulseTheme.accent, size: 24),
+                                          child: Icon(icon, color: PulseTheme.accent, size: 26),
                                         ),
                                         const SizedBox(width: 16),
                                         Expanded(
@@ -464,11 +302,11 @@ class ExerciseScreen extends ConsumerWidget {
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                w.workoutType?.toUpperCase() ?? 'EXERCISE',
+                                                sportTitle,
                                                 style: TextStyle(
                                                   color: textColor,
                                                   fontWeight: FontWeight.bold,
-                                                  fontSize: 15,
+                                                  fontSize: 16,
                                                 ),
                                               ),
                                               const SizedBox(height: 4),
@@ -476,27 +314,35 @@ class ExerciseScreen extends ConsumerWidget {
                                                 formattedTime,
                                                 style: TextStyle(
                                                   color: PulseTheme.secondary,
-                                                  fontSize: 11,
+                                                  fontSize: 12,
                                                 ),
                                               ),
                                               const SizedBox(height: 8),
                                               Row(
                                                 children: [
-                                                  Icon(Icons.timer_outlined, size: 14, color: PulseTheme.secondary),
+                                                  Icon(Icons.timer_outlined, size: 15, color: PulseTheme.secondary),
                                                   const SizedBox(width: 4),
                                                   Text(
                                                     _formatDuration(w.durationSeconds),
-                                                    style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
+                                                    style: TextStyle(
+                                                      color: textColor,
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
                                                   ),
-                                                  const SizedBox(width: 16),
-                                                  Icon(Icons.local_fire_department_outlined, size: 14, color: PulseTheme.secondary),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    w.totalCaloriesKcal != null
-                                                        ? '${w.totalCaloriesKcal!.toStringAsFixed(0)} kcal'
-                                                        : '--',
-                                                    style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
-                                                  ),
+                                                  if (w.totalCaloriesKcal != null) ...[
+                                                    const SizedBox(width: 16),
+                                                    Icon(Icons.local_fire_department_outlined, size: 15, color: PulseTheme.secondary),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      '${w.totalCaloriesKcal!.toStringAsFixed(0)} kcal',
+                                                      style: TextStyle(
+                                                        color: textColor,
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ],
                                               ),
                                             ],
@@ -516,16 +362,33 @@ class ExerciseScreen extends ConsumerWidget {
                     },
                     loading: () => const SliverFillRemaining(
                       hasScrollBody: false,
-                      child: Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      child: PulseLoadingIndicator(message: 'Loading workouts...'),
                     ),
                     error: (err, _) => SliverFillRemaining(
                       hasScrollBody: false,
                       child: Center(
-                        child: Text(
-                          'Error loading exercises: $err',
-                          style: const TextStyle(color: Colors.red),
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Could not load exercises',
+                                style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '$err',
+                                style: const TextStyle(color: Colors.red, fontSize: 12),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _syncAndRefresh,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -535,45 +398,6 @@ class ExerciseScreen extends ConsumerWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildStepRow(String stepNumber, String text, Color textColor) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 20,
-            height: 20,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: PulseTheme.accent.withOpacity(0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              stepNumber,
-              style: TextStyle(
-                color: PulseTheme.accent,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: textColor.withOpacity(0.85),
-                fontSize: 12.5,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

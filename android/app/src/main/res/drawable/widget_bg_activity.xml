@@ -1,32 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Layer 1: Base deep dark gradient -->
     <item>
         <shape android:shape="rectangle">
             <gradient
-                android:startColor="#FF0D1117"
-                android:endColor="#FF131A28"
+                android:startColor="#0B1120"
+                android:endColor="#111827"
                 android:angle="135"
                 android:type="linear" />
-            <corners android:radius="16dp" />
+            <corners android:radius="20dp" />
         </shape>
     </item>
+
+    <!-- Layer 2: Subtle cyan glow from bottom -->
     <item>
         <shape android:shape="rectangle">
             <gradient
-                android:startColor="#1A22D3EE"
-                android:centerColor="#0DFB923C"
+                android:startColor="#2E06B6D4"
                 android:endColor="#00000000"
-                android:angle="45"
+                android:angle="90"
                 android:type="linear" />
-            <corners android:radius="16dp" />
+            <corners android:radius="20dp" />
         </shape>
     </item>
+
+    <!-- Layer 3: Thin border stroke with cyan accent -->
     <item>
         <shape android:shape="rectangle">
-            <corners android:radius="16dp" />
             <stroke
                 android:width="0.5dp"
-                android:color="#2622D3EE" />
+                android:color="#3306B6D4" />
+            <corners android:radius="20dp" />
+            <solid android:color="@android:color/transparent" />
         </shape>
     </item>
+
 </layer-list>

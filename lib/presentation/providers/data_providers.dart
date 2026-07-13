@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
 import 'providers.dart';
+import '../../core/theme.dart';
+import '../../utils/widget_theme_sync.dart';
 import '../../data/database_service.dart';
 import '../../data/collections/daily_metric.dart';
 import '../../data/collections/daily_score.dart';
@@ -105,6 +107,9 @@ final todayScoresProvider = FutureProvider<DailyScore>((ref) async {
 
   // Update Android Home Widgets (8 Premium widgets)
   try {
+    final themeSettings = ref.read(themeSettingsProvider);
+    await syncWidgetThemeToAndroid(themeSettings);
+
     // Scores
     await HomeWidget.saveWidgetData<String>('recovery_score', score.recoveryScore?.toInt().toString() ?? '--');
     await HomeWidget.saveWidgetData<String>('strain_score', score.strainScore?.toInt().toString() ?? '--');
@@ -163,3 +168,15 @@ final forceSyncProvider = FutureProvider<SyncResult>((ref) async {
 
   return result;
 });
+
+/// Invalidates all health data providers so screens refresh after sync.
+void invalidateAllDataProviders(WidgetRef ref) {
+  ref.invalidate(todayMetricsProvider);
+  ref.invalidate(historyMetricsProvider);
+  ref.invalidate(todayScoresProvider);
+  ref.invalidate(historyScoresProvider);
+  ref.invalidate(todayWorkoutsProvider);
+  ref.invalidate(recentWorkoutsProvider);
+  ref.invalidate(unlinkedStrengthWorkoutsProvider);
+  ref.invalidate(healthAuthStateProvider);
+}

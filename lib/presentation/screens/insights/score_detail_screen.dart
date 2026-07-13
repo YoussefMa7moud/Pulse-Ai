@@ -78,10 +78,10 @@ class _ScoreDetailScreenState extends ConsumerState<ScoreDetailScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+          icon: Icon(Icons.arrow_back_ios_new, color: PulseTheme.primary),
           onPressed: () => context.pop(),
         ),
-        title: Text('$title DETAILS', style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2)),
+        title: Text('$title DETAILS', style: TextStyle(color: PulseTheme.primary, fontWeight: FontWeight.bold, letterSpacing: 2)),
       ),
       body: AnimatedGradientBackground(
         child: SafeArea(
@@ -104,7 +104,7 @@ class _ScoreDetailScreenState extends ConsumerState<ScoreDetailScreen> {
                     if (isLoading)
                       const Center(child: Padding(padding: EdgeInsets.all(32), child: PulseLoadingIndicator(size: 50, message: 'Consulting AI coach...')))
                     else
-                      Text(aiInsight ?? "No insight available.", style: const TextStyle(fontSize: 16, height: 1.6, color: Colors.white)),
+                      Text(aiInsight ?? "No insight available.", style: TextStyle(fontSize: 16, height: 1.6, color: PulseTheme.primary)),
                   ],
                 ),
               ),
@@ -124,7 +124,7 @@ class _ScoreDetailScreenState extends ConsumerState<ScoreDetailScreen> {
                     const SizedBox(height: 16),
                     Text(
                       _getScienceExplanation(),
-                      style: const TextStyle(fontSize: 15, height: 1.5, color: Colors.white70),
+                      style: TextStyle(fontSize: 15, height: 1.5, color: PulseTheme.secondary),
                     ),
                   ],
                 ),

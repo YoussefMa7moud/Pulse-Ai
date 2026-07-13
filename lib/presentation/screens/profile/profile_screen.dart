@@ -7,6 +7,7 @@ import '../../providers/providers.dart';
 import '../../providers/data_providers.dart';
 import '../../../widgets/glass_container.dart';
 import '../../../widgets/animated_background.dart';
+import '../../../utils/sync_helper.dart';
 import '../../../data/collections/user_profile.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -269,6 +270,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     .saveUserProfile(profile);
                                 ref.invalidate(userProfileProvider);
                                 ref.invalidate(healthAuthStateProvider);
+
+                                if (context.mounted) {
+                                  await runWithSyncOverlay(context, () async {
+                                    final syncUseCase = ref.read(syncUseCaseProvider);
+                                    await syncUseCase.syncAll(daysBack: 30);
+                                  }, message: 'Syncing health data...');
+                                  invalidateAllDataProviders(ref);
+                                }
                               }
                             }
                           },
@@ -592,58 +601,148 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _showEditProfileDialog(BuildContext context, UserProfile profile, WidgetRef ref) async {
+    final nameController = TextEditingController(text: profile.name ?? '');
     final ageController = TextEditingController(text: profile.age?.toString() ?? '');
     final heightController = TextEditingController(text: profile.heightCm?.toString() ?? '');
     final weightController = TextEditingController(text: profile.weightKg?.toString() ?? '');
+    String selectedGender = profile.gender ?? 'Male';
+    String selectedGoal = profile.primaryGoal ?? 'Improve Fitness';
+
+    final goals = [
+      'Improve Fitness',
+      'Maximize Recovery',
+      'Optimize Sleep',
+      'Lose Body Fat',
+      'Build Muscle',
+      'Manage Stress',
+      'General Health',
+    ];
+
+    if (!goals.contains(selectedGoal)) {
+      goals.add(selectedGoal);
+    }
 
     await showDialog(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: PulseTheme.surfaceLight,
-          title: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: ageController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: 'Age (years)', labelStyle: TextStyle(color: PulseTheme.secondary)),
-                style: const TextStyle(color: Colors.white),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: PulseTheme.surface,
+              title: Text('Edit Profile', style: TextStyle(color: PulseTheme.primary, fontWeight: FontWeight.bold)),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Name',
+                        labelStyle: TextStyle(color: PulseTheme.secondary),
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: PulseTheme.surfaceLight)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: PulseTheme.accent)),
+                      ),
+                      style: TextStyle(color: PulseTheme.primary),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: ageController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Age (years)',
+                        labelStyle: TextStyle(color: PulseTheme.secondary),
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: PulseTheme.surfaceLight)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: PulseTheme.accent)),
+                      ),
+                      style: TextStyle(color: PulseTheme.primary),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedGender,
+                      dropdownColor: PulseTheme.surface,
+                      style: TextStyle(color: PulseTheme.primary, fontSize: 16),
+                      decoration: InputDecoration(
+                        labelText: 'Gender',
+                        labelStyle: TextStyle(color: PulseTheme.secondary),
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: PulseTheme.surfaceLight)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: PulseTheme.accent)),
+                      ),
+                      items: ['Male', 'Female', 'Other'].map((g) {
+                        return DropdownMenuItem(value: g, child: Text(g));
+                      }).toList(),
+                      onChanged: (val) => setState(() => selectedGender = val!),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: heightController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Height (cm)',
+                        labelStyle: TextStyle(color: PulseTheme.secondary),
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: PulseTheme.surfaceLight)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: PulseTheme.accent)),
+                      ),
+                      style: TextStyle(color: PulseTheme.primary),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: weightController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Weight (kg)',
+                        labelStyle: TextStyle(color: PulseTheme.secondary),
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: PulseTheme.surfaceLight)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: PulseTheme.accent)),
+                      ),
+                      style: TextStyle(color: PulseTheme.primary),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedGoal,
+                      dropdownColor: PulseTheme.surface,
+                      style: TextStyle(color: PulseTheme.primary, fontSize: 15),
+                      decoration: InputDecoration(
+                        labelText: 'Primary Goal',
+                        labelStyle: TextStyle(color: PulseTheme.secondary),
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: PulseTheme.surfaceLight)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: PulseTheme.accent)),
+                      ),
+                      items: goals.map((g) {
+                        return DropdownMenuItem(value: g, child: Text(g));
+                      }).toList(),
+                      onChanged: (val) => setState(() => selectedGoal = val!),
+                    ),
+                  ],
+                ),
               ),
-              TextField(
-                controller: heightController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: 'Height (cm)', labelStyle: TextStyle(color: PulseTheme.secondary)),
-                style: const TextStyle(color: Colors.white),
-              ),
-              TextField(
-                controller: weightController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: 'Weight (kg)', labelStyle: TextStyle(color: PulseTheme.secondary)),
-                style: const TextStyle(color: Colors.white),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel', style: TextStyle(color: PulseTheme.secondary)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: PulseTheme.accent),
-              onPressed: () async {
-                final db = ref.read(databaseProvider);
-                profile.age = int.tryParse(ageController.text) ?? profile.age;
-                profile.heightCm = double.tryParse(heightController.text) ?? profile.heightCm;
-                profile.weightKg = double.tryParse(weightController.text) ?? profile.weightKg;
-                await db.saveUserProfile(profile);
-                ref.invalidate(userProfileProvider);
-                if (ctx.mounted) Navigator.pop(ctx);
-              },
-              child: const Text('Save'),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text('Cancel', style: TextStyle(color: PulseTheme.secondary)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: PulseTheme.accent,
+                    foregroundColor: Colors.black,
+                  ),
+                  onPressed: () async {
+                    final db = ref.read(databaseProvider);
+                    profile.name = nameController.text.trim().isNotEmpty ? nameController.text.trim() : profile.name;
+                    profile.age = int.tryParse(ageController.text) ?? profile.age;
+                    profile.gender = selectedGender;
+                    profile.heightCm = double.tryParse(heightController.text) ?? profile.heightCm;
+                    profile.weightKg = double.tryParse(weightController.text) ?? profile.weightKg;
+                    profile.primaryGoal = selectedGoal;
+                    
+                    await db.saveUserProfile(profile);
+                    ref.invalidate(userProfileProvider);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                  },
+                  child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
         );
       },
     );

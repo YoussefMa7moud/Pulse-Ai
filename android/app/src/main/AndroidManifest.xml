@@ -73,56 +73,56 @@
         <activity android:name="androidx.health.connect.client.PermissionActivity" android:exported="true" />
 
         <!-- Widget Receivers (8 Premium Themed Widgets) -->
-        <receiver android:name=".PulseRecoveryWidgetProvider" android:exported="true">
+        <receiver android:name=".PulseRecoveryWidgetProvider" android:exported="true" android:label="Pulse: Recovery Score">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_recovery_info" />
         </receiver>
 
-        <receiver android:name=".PulseSleepWidgetProvider" android:exported="true">
+        <receiver android:name=".PulseSleepWidgetProvider" android:exported="true" android:label="Pulse: Sleep Quality">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_sleep_info" />
         </receiver>
 
-        <receiver android:name=".PulseStrainWidgetProvider" android:exported="true">
+        <receiver android:name=".PulseStrainWidgetProvider" android:exported="true" android:label="Pulse: Daily Strain">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_strain_info" />
         </receiver>
 
-        <receiver android:name=".PulseReadinessWidgetProvider" android:exported="true">
+        <receiver android:name=".PulseReadinessWidgetProvider" android:exported="true" android:label="Pulse: Readiness Score">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_readiness_info" />
         </receiver>
 
-        <receiver android:name=".PulseStressWidgetProvider" android:exported="true">
+        <receiver android:name=".PulseStressWidgetProvider" android:exported="true" android:label="Pulse: Stress Balance">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_stress_info" />
         </receiver>
 
-        <receiver android:name=".PulseStepsWidgetProvider" android:exported="true">
+        <receiver android:name=".PulseStepsWidgetProvider" android:exported="true" android:label="Pulse: Activity Steps">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_steps_info" />
         </receiver>
 
-        <receiver android:name=".PulseHeartWidgetProvider" android:exported="true">
+        <receiver android:name=".PulseHeartWidgetProvider" android:exported="true" android:label="Pulse: Heart Vitals">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_heart_info" />
         </receiver>
 
-        <receiver android:name=".PulseOverviewWidgetProvider" android:exported="true">
+        <receiver android:name=".PulseOverviewWidgetProvider" android:exported="true" android:label="Pulse: Health Glance">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

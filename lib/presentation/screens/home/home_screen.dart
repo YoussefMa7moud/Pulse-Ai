@@ -13,6 +13,7 @@ import '../../../widgets/pulse_loader.dart';
 import '../../../services/ai_service.dart';
 import '../../../widgets/animated_counter.dart';
 import '../../../widgets/staggered_animation.dart';
+import '../../../utils/sync_helper.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -171,22 +172,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   icon: const Icon(Icons.sync_rounded),
                   label: const Text("Sync Now", style: TextStyle(fontWeight: FontWeight.bold)),
                   onPressed: () async {
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (context) => const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    );
-                    try {
+                    await runWithSyncOverlay(context, () async {
                       final syncUseCase = ref.read(syncUseCaseProvider);
                       await syncUseCase.syncAll(daysBack: 14);
-                    } catch (_) {}
-                    if (context.mounted) Navigator.pop(context);
+                    }, message: 'Syncing your health data...');
 
+                    if (!context.mounted) return;
                     ref.invalidate(todayMetricsProvider);
                     ref.invalidate(todayScoresProvider);
                     ref.invalidate(recentWorkoutsProvider);
+                    ref.invalidate(historyScoresProvider);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: PulseTheme.recoveryLow,
@@ -204,25 +199,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       success = await health.requestPermissions();
                     } catch (_) {}
 
-                    if (success) {
-                      showDialog(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (context) => const Center(
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                      try {
-                        final syncUseCase = ref.read(syncUseCaseProvider);
-                        await syncUseCase.syncAll(daysBack: 14);
-                      } catch (_) {}
-                      if (context.mounted) Navigator.pop(context);
+                    if (!success || !context.mounted) return;
 
-                      ref.invalidate(todayMetricsProvider);
-                      ref.invalidate(todayScoresProvider);
-                      ref.invalidate(healthAuthStateProvider);
-                      ref.invalidate(recentWorkoutsProvider);
-                    }
+                    await runWithSyncOverlay(context, () async {
+                      final syncUseCase = ref.read(syncUseCaseProvider);
+                      await syncUseCase.syncAll(daysBack: 14);
+                    }, message: 'Connecting and syncing your data...');
+
+                    if (!context.mounted) return;
+                    ref.invalidate(todayMetricsProvider);
+                    ref.invalidate(todayScoresProvider);
+                    ref.invalidate(healthAuthStateProvider);
+                    ref.invalidate(recentWorkoutsProvider);
+                    ref.invalidate(historyScoresProvider);
+                    ref.invalidate(historyMetricsProvider);
                   },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: textColor,

@@ -1,32 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Layer 1: Base deep dark gradient -->
     <item>
         <shape android:shape="rectangle">
             <gradient
-                android:startColor="#FF0D1117"
-                android:endColor="#FF131A28"
+                android:startColor="#0B1120"
+                android:endColor="#111827"
                 android:angle="135"
                 android:type="linear" />
-            <corners android:radius="16dp" />
+            <corners android:radius="20dp" />
         </shape>
     </item>
+
+    <!-- Layer 2: Subtle cyan glow from top-left -->
     <item>
         <shape android:shape="rectangle">
             <gradient
-                android:startColor="#1A38BDF8"
-                android:centerColor="#0D38BDF8"
+                android:startColor="#2622D3EE"
+                android:centerColor="#00000000"
                 android:endColor="#00000000"
-                android:angle="0"
+                android:angle="315"
                 android:type="linear" />
-            <corners android:radius="16dp" />
+            <corners android:radius="20dp" />
         </shape>
     </item>
+
+    <!-- Layer 3: Subtle orange glow from bottom-right -->
     <item>
         <shape android:shape="rectangle">
-            <corners android:radius="16dp" />
-            <stroke
-                android:width="0.5dp"
-                android:color="#2638BDF8" />
+            <gradient
+                android:startColor="#26F97316"
+                android:centerColor="#00000000"
+                android:endColor="#00000000"
+                android:angle="135"
+                android:type="linear" />
+            <corners android:radius="20dp" />
         </shape>
     </item>
+
+    <!-- Layer 4: Thin border stroke with blended accent -->
+    <item>
+        <shape android:shape="rectangle">
+            <stroke
+                android:width="0.5dp"
+                android:color="#2622D3EE" />
+            <corners android:radius="20dp" />
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+
 </layer-list>

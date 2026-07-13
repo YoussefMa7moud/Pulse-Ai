@@ -1,37 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@drawable/widget_bg_sleep"
-    android:padding="16dp"
-    android:gravity="center">
+    android:padding="16dp">
 
-    <TextView
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="SLEEP SESSION"
-        android:textColor="#94A3B8"
-        android:textSize="10sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.2"
-        android:layout_marginBottom="8dp" />
+        android:layout_gravity="center"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/widget_sleep_score"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="--"
-        android:textColor="#818CF8"
-        android:textSize="36sp"
-        android:textStyle="bold" />
+        <FrameLayout
+            android:layout_width="78dp"
+            android:layout_height="78dp">
 
-    <TextView
-        android:id="@+id/widget_sleep_duration"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="-- hrs"
-        android:textColor="#94A3B8"
-        android:textSize="12sp"
-        android:layout_marginTop="4dp" />
-</LinearLayout>
+            <ProgressBar
+                android:id="@+id/sleep_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="78dp"
+                android:layout_height="78dp"
+                android:indeterminate="false"
+                android:max="100"
+                android:progress="0"
+                android:progressDrawable="@drawable/widget_circular_progress_purple" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_sleep_score"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="--"
+                    android:textColor="#818CF8"
+                    android:textSize="26sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SLEEP"
+                    android:textAllCaps="true"
+                    android:textColor="#9CA3AF"
+                    android:textSize="8sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.1" />
+
+            </LinearLayout>
+
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/widget_sleep_duration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="-- hrs"
+            android:textColor="#6B7280"
+            android:textSize="11sp" />
+
+    </LinearLayout>
+
+</FrameLayout>

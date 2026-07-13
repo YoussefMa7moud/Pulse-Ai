@@ -14,8 +14,19 @@ class PulseStressWidgetProvider : HomeWidgetProvider() {
                 val recoveryStr = widgetData.getString("recovery_score", "--") ?: "--"
                 val recovery = recoveryStr.toIntOrNull() ?: 50
                 val level = if (recovery >= 67) "Optimal" else if (recovery >= 34) "Balanced" else "Stressed"
-                setTextViewText(R.id.widget_stress_score, score)
+                val scoreVal = score.toIntOrNull() ?: 0
+
+                setTextViewText(R.id.widget_stress_score, if (score == "--") "--" else "$score")
+                setProgressBar(R.id.stress_progress, 100, scoreVal, false)
                 setTextViewText(R.id.widget_stress_level, level)
+
+                WidgetThemeHelper.applyTheme(
+                    context, this, widgetData,
+                    R.drawable.widget_bg_dark,
+                    R.drawable.widget_bg_dark_light,
+                    intArrayOf(R.id.widget_stress_score),
+                    intArrayOf(R.id.widget_stress_level)
+                )
             }
             appWidgetManager.updateAppWidget(widgetId, views)
         }

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pulse AI</string>
+    <string name="widget_recovery_desc">Your body\'s recovery score with a bold progress ring — see how ready you are at a glance</string>
+    <string name="widget_sleep_desc">Sleep quality score with duration — track your rest performance overnight</string>
+    <string name="widget_strain_desc">Daily strain level with calorie burn — monitor your training load in real time</string>
+    <string name="widget_readiness_desc">Readiness score with energy level — know when to push hard or take it easy</string>
+    <string name="widget_stress_desc">Stress balance indicator — keep your mental load in check throughout the day</string>
+    <string name="widget_steps_desc">Daily step count with distance — stay on top of your movement goals</string>
+    <string name="widget_heart_desc">Resting heart rate and HRV — your cardiovascular health at a glance</string>
+    <string name="widget_overview_desc">Complete health dashboard — recovery ring, strain, sleep, and stress all in one premium widget</string>
+</resources>

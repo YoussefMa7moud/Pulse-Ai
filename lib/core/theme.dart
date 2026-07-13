@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/widget_theme_sync.dart';
 
 enum ThemeVariant { midnightSlate, neonHorizon, forestZen, sunsetCrimson }
 enum WidgetCardTheme { glassmorphism, cyberpunk, animatedAura, minimalStark }
@@ -53,16 +54,19 @@ class ThemeSettingsNotifier extends StateNotifier<ThemeSettings> {
   void updateThemeMode(ThemeMode mode) {
     state = state.copyWith(mode: mode);
     prefs.setInt('theme_mode', mode.index);
+    syncWidgetThemeToAndroid(state);
   }
 
   void updateThemeVariant(ThemeVariant variant) {
     state = state.copyWith(variant: variant);
     prefs.setInt('theme_variant', variant.index);
+    syncWidgetThemeToAndroid(state);
   }
 
   void updateWidgetCardTheme(WidgetCardTheme cardTheme) {
     state = state.copyWith(widgetCardTheme: cardTheme);
     prefs.setInt('widget_card_theme', cardTheme.index);
+    syncWidgetThemeToAndroid(state);
   }
 }
 

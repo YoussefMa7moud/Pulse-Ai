@@ -34,10 +34,54 @@ class DatabaseService {
     if (userId.isEmpty) return UserProfile();
     try {
       final res = await client.from('profiles').select().eq('id', userId).maybeSingle();
+      
+      final currentUser = client.auth.currentUser;
+      final metadata = currentUser?.userMetadata ?? {};
+
       if (res != null) {
-        return UserProfile.fromJson(res);
+        final profile = UserProfile.fromJson(res);
+        // If values are null in the database but exist in auth metadata (e.g. from sign up), copy them over
+        bool changed = false;
+        if (profile.name == null && metadata['name'] != null) {
+          profile.name = metadata['name'] as String?;
+          changed = true;
+        }
+        if (profile.age == null && metadata['age'] != null) {
+          profile.age = (metadata['age'] as num).toInt();
+          changed = true;
+        }
+        if (profile.gender == null && metadata['gender'] != null) {
+          profile.gender = metadata['gender'] as String?;
+          changed = true;
+        }
+        if (profile.heightCm == null && metadata['height_cm'] != null) {
+          profile.heightCm = (metadata['height_cm'] as num).toDouble();
+          changed = true;
+        }
+        if (profile.weightKg == null && metadata['weight_kg'] != null) {
+          profile.weightKg = (metadata['weight_kg'] as num).toDouble();
+          changed = true;
+        }
+        if (profile.primaryGoal == null && metadata['primary_goal'] != null) {
+          profile.primaryGoal = metadata['primary_goal'] as String?;
+          changed = true;
+        }
+
+        if (changed) {
+          await saveUserProfile(profile);
+        }
+        return profile;
       } else {
-        final profile = UserProfile(id: userId, hasCompletedOnboarding: false);
+        final profile = UserProfile(
+          id: userId,
+          name: metadata['name'] as String?,
+          age: metadata['age'] != null ? (metadata['age'] as num).toInt() : null,
+          gender: metadata['gender'] as String?,
+          heightCm: metadata['height_cm'] != null ? (metadata['height_cm'] as num).toDouble() : null,
+          weightKg: metadata['weight_kg'] != null ? (metadata['weight_kg'] as num).toDouble() : null,
+          primaryGoal: metadata['primary_goal'] as String?,
+          hasCompletedOnboarding: false,
+        );
         await saveUserProfile(profile);
         return profile;
       }
@@ -128,12 +172,16 @@ class DatabaseService {
 
   Future<void> upsertWorkoutSessions(List<WorkoutSession> sessions) async {
     if (userId.isEmpty || sessions.isEmpty) return;
-    final list = sessions.map((s) {
-      final json = s.toJson();
-      json['user_id'] = userId;
-      return json;
-    }).toList();
-    await client.from('workout_sessions').upsert(list);
+    try {
+      final list = sessions.map((s) {
+        final json = s.toJson();
+        json['user_id'] = userId;
+        return json;
+      }).toList();
+      await client.from('workout_sessions').upsert(list);
+    } catch (e, stack) {
+      print('[DatabaseService] Error upserting workouts: $e\n$stack');
+    }
   }
 
   Future<List<WorkoutSession>> getWorkoutsForDay(DateTime date) async {
@@ -145,7 +193,8 @@ class DatabaseService {
           .eq('user_id', userId)
           .eq('date', dateStr);
       return (res as List).map((e) => WorkoutSession.fromJson(e)).toList();
-    } catch (_) {
+    } catch (e, stack) {
+      print('[DatabaseService] Error getting workouts for day: $e\n$stack');
       return [];
     }
   }
@@ -161,7 +210,8 @@ class DatabaseService {
           .gt('date', cutoffStr)
           .order('start_time', ascending: false);
       return (res as List).map((e) => WorkoutSession.fromJson(e)).toList();
-    } catch (_) {
+    } catch (e, stack) {
+      print('[DatabaseService] Error getting recent workouts: $e\n$stack');
       return [];
     }
   }

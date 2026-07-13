@@ -9,6 +9,8 @@ import 'core/app_router.dart';
 import 'data/database_service.dart';
 import 'infrastructure/health/google_health_service.dart';
 import 'use_cases/sync_use_case.dart';
+import 'presentation/providers/data_providers.dart';
+import 'utils/widget_theme_sync.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -69,8 +71,22 @@ class _PulseAppState extends ConsumerState<PulseApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Kick off background sync on first launch
     _triggerSync();
+
+    // Invalidate and refresh all providers when user logs in/out so they see their Supabase history
+    sb.Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (!mounted) return;
+      final event = data.event;
+      if (event == sb.AuthChangeEvent.signedIn || event == sb.AuthChangeEvent.signedOut) {
+        invalidateAllDataProviders(ref);
+      }
+    });
+
+    // Push saved widget theme to Android on launch
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final settings = ref.read(themeSettingsProvider);
+      syncWidgetThemeToAndroid(settings);
+    });
   }
 
   @override
@@ -79,19 +95,24 @@ class _PulseAppState extends ConsumerState<PulseApp>
     super.dispose();
   }
 
-  /// When app comes to foreground, do a lightweight today-only sync
+  /// When app comes to foreground, sync and refresh all data providers.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      widget.syncUseCase.syncToday();
+      widget.syncUseCase.syncToday().then((_) {
+        if (!mounted) return;
+        invalidateAllDataProviders(ref);
+      });
     }
   }
 
-  /// On startup: check if authorized and run full 30-day sync if so.
+  /// On startup: run full 30-day sync if authorized.
   Future<void> _triggerSync() async {
-    // syncAll internally checks authorization before fetching data
-    // Run in background — don't await so UI loads immediately
-    widget.syncUseCase.syncAll(daysBack: 30);
+    final result = await widget.syncUseCase.syncAll(daysBack: 30);
+    if (!mounted) return;
+    if (result.success) {
+      invalidateAllDataProviders(ref);
+    }
   }
 
   @override

@@ -3,6 +3,7 @@ import '../../data/database_service.dart';
 import '../../data/collections/daily_metric.dart';
 import '../../data/collections/daily_score.dart';
 import '../../data/collections/workout_session.dart';
+import '../../data/collections/user_profile.dart';
 import '../../scores/score_engine.dart';
 import '../../domain/repositories/health_repository.dart';
 
@@ -32,6 +33,7 @@ class SyncUseCase {
     debugPrint('[SyncUseCase] Starting full sync ($daysBack days)...');
 
     try {
+      final profile = await _db.getUserProfile();
       final end = DateTime.now();
       final start = end.subtract(Duration(days: daysBack));
 
@@ -48,6 +50,7 @@ class SyncUseCase {
             metric.workoutSessionCount = workouts.length;
           }
           
+          _applyProfileToMetric(metric, profile);
           allMetrics.add(metric);
           allWorkouts.addAll(workouts);
         } catch (e) {
@@ -67,7 +70,6 @@ class SyncUseCase {
 
       await _recalculateScores(allMetrics);
 
-      final profile = await _db.getUserProfile();
       profile.lastSyncDate = DateTime.now();
       await _db.saveUserProfile(profile);
 
@@ -84,6 +86,31 @@ class SyncUseCase {
         error: e.toString(),
         completedAt: DateTime.now(),
       );
+    }
+  }
+
+  void _applyProfileToMetric(DailyMetric metric, UserProfile profile) {
+    if (metric.weightKg == null || metric.weightKg == 0.0) {
+      metric.weightKg = profile.weightKg;
+    }
+    
+    // BMR estimation using Harris-Benedict equation if missing or using old 75kg default (75 * 24 = 1800)
+    if (metric.caloriesBurned == null || metric.caloriesBurned == 0.0 || metric.caloriesBurned == 1800.0) {
+      final w = profile.weightKg ?? 75.0;
+      final h = profile.heightCm ?? 175.0;
+      final age = profile.age ?? 25;
+      final gender = profile.gender ?? 'Male';
+      
+      double estimatedBmr;
+      if (gender.toLowerCase() == 'female') {
+        estimatedBmr = 447.593 + (9.247 * w) + (3.098 * h) - (4.330 * age);
+      } else {
+        estimatedBmr = 88.362 + (13.397 * w) + (4.799 * h) - (5.677 * age);
+      }
+      
+      metric.caloriesBurned = estimatedBmr;
+      metric.totalCalories = ((metric.activeCalories ?? 0.0) + estimatedBmr).toInt();
+      debugPrint('[SyncUseCase] Applied Harris-Benedict BMR to metric for ${metric.date}: ${estimatedBmr.toStringAsFixed(1)} kcal (weight=$w, height=$h, age=$age, gender=$gender)');
     }
   }
 
@@ -112,6 +139,9 @@ class SyncUseCase {
       final workouts = await _healthRepo.fetchWorkoutsForDay(today);
       
       if (workouts.isNotEmpty) metric.workoutSessionCount = workouts.length;
+
+      final profile = await _db.getUserProfile();
+      _applyProfileToMetric(metric, profile);
 
       await _db.upsertMetric(metric);
       await _db.upsertWorkoutSessions(workouts);
