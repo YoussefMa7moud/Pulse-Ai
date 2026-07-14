@@ -6,6 +6,8 @@ import '../../providers/providers.dart';
 import '../../../widgets/animated_background.dart';
 import '../../../widgets/glass_container.dart';
 
+import 'package:flutter_animate/flutter_animate.dart';
+
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -19,31 +21,36 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   final List<WalkthroughPageData> _pages = [
     WalkthroughPageData(
-      title: 'PULSE AI',
-      subtitle: 'Your personal AI health intelligence platform powered by wearable telemetry.',
-      description: 'Pulse AI monitors your recovery, strain, sleep, and physiological data in real-time, translating complex metrics into actionable insights.',
-      icon: Icons.favorite_rounded,
-      color: PulseTheme.recoveryLow,
-    ),
-    WalkthroughPageData(
-      title: 'BIOMETRIC SYNC',
-      subtitle: 'Seamless integration with Google Health Connect.',
-      description: 'Automatically pull resting heart rate, HRV, sleep stages, active minutes, and steps directly from your device. No manual logging required.',
-      icon: Icons.sync_rounded,
+      title: 'WEARABLE SYNC',
+      subtitle: 'Connects with any wearable device via Health Connect.',
+      description: 'Pulse AI seamlessly pulls your vital data — including resting heart rate, HRV, and sleep stages. Connect your favorite wearable directly through Health Connect.',
+      icon: Icons.sync_rounded, // Fallback if image fails
+      useLogoImage: true,
+      imagePath: 'assets/health_connect_logo.png',
       color: PulseTheme.accent,
     ),
     WalkthroughPageData(
-      title: 'AI COACHING',
-      subtitle: 'Conversational coach built for your health goals.',
-      description: 'Receive highly tailored daily advice and chat with an elite AI health coach that knows your historical baselines and training responses.',
+      title: 'PHYSIOLOGICAL SCORES',
+      subtitle: 'Understand your body like never before.',
+      description: 'Every morning, your data is translated into 0-100 scores for Recovery, Strain, and Sleep Quality, helping you know exactly when to push and when to rest.',
+      icon: Icons.analytics_rounded,
+      useLogoImage: false,
+      color: PulseTheme.recoveryMedium,
+    ),
+    WalkthroughPageData(
+      title: 'AI COACHING & INSIGHTS',
+      subtitle: 'Your personal sports scientist in your pocket.',
+      description: 'Our advanced AI analyzes your daily and 30-day trends to provide highly personalized, dynamic coaching and daily advice tailored specifically to your metrics.',
       icon: Icons.auto_awesome,
+      useLogoImage: false,
       color: PulseTheme.sleepPrimary,
     ),
     WalkthroughPageData(
-      title: 'READY TO START?',
-      subtitle: 'Join Pulse AI today to unlock your performance potential.',
-      description: 'Sign in to access your dashboard, or create a new account to configure your profile and synchronize your metrics.',
-      icon: Icons.celebration_rounded,
+      title: 'MEDICAL DISCLAIMER',
+      subtitle: 'Pulse AI is not a medical device.',
+      description: 'This app helps you track data and gives insights based on it. However, this cannot be considered reliable medical advice, and the AI can make mistakes. Always consult a doctor for medical concerns.',
+      icon: Icons.warning_rounded,
+      useLogoImage: false,
       color: PulseTheme.strainPrimary,
     ),
   ];
@@ -90,19 +97,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       ),
                     );
                   }),
-                ),
+                ).animate().fade(duration: 500.ms),
                 const SizedBox(height: 20),
 
                 // Main Slider
                 Expanded(
                   child: PageView.builder(
                     controller: _pageController,
-                    itemCount: _pages.length,
                     onPageChanged: (page) {
                       setState(() {
                         _currentPage = page;
                       });
                     },
+                    itemCount: _pages.length,
                     itemBuilder: (context, index) {
                       final item = _pages[index];
                       return Center(
@@ -123,12 +130,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                     ],
                                   ),
                                 ),
-                                child: index == 0
+                                child: item.useLogoImage
                                     ? Padding(
-                                        padding: const EdgeInsets.all(12),
+                                        padding: const EdgeInsets.all(20),
                                         child: Image.asset(
-                                          'assets/logo.png',
+                                          item.imagePath ?? '',
                                           fit: BoxFit.contain,
+                                          errorBuilder: (context, error, stackTrace) => Icon(item.icon, size: 72, color: item.color),
                                         ),
                                       )
                                     : Icon(
@@ -136,21 +144,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                         size: 72,
                                         color: item.color,
                                       ),
-                              ),
+                              ).animate(key: ValueKey(index)).scale(duration: 600.ms, curve: Curves.easeOutBack).fade(),
                               const SizedBox(height: 40),
 
                               // Text Content
                               Text(
                                 item.title,
                                 style: const TextStyle(
-                                  fontSize: 32,
+                                  fontSize: 28,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.white,
                                   letterSpacing: 2,
                                 ),
                                 textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 8),
+                              ).animate(key: ValueKey('title_$index')).slideY(begin: 0.5, end: 0, duration: 500.ms, curve: Curves.easeOutQuad).fade(),
+                              const SizedBox(height: 12),
                               Text(
                                 item.subtitle,
                                 style: TextStyle(
@@ -159,21 +167,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                   color: item.color,
                                 ),
                                 textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 24),
+                              ).animate(key: ValueKey('sub_$index')).slideY(begin: 0.5, end: 0, duration: 500.ms, delay: 100.ms, curve: Curves.easeOutQuad).fade(),
+                              const SizedBox(height: 28),
                               GlassContainer(
                                 padding: const EdgeInsets.all(20),
                                 borderColor: item.color.withOpacity(0.2),
                                 child: Text(
                                   item.description,
                                   style: const TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 15,
                                     color: Colors.white70,
                                     height: 1.6,
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
-                              ),
+                              ).animate(key: ValueKey('desc_$index')).slideY(begin: 0.5, end: 0, duration: 500.ms, delay: 200.ms, curve: Curves.easeOutQuad).fade(),
                             ],
                           ),
                         ),
@@ -187,29 +195,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 // Navigation Controls
                 if (_currentPage < _pages.length - 1)
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      TextButton(
-                        onPressed: () {
-                          _pageController.animateToPage(
-                            _pages.length - 1,
-                            duration: const Duration(milliseconds: 400),
-                            curve: Curves.easeInOut,
-                          );
-                        },
-                        child: Text(
-                          'SKIP',
-                          style: TextStyle(
-                            color: PulseTheme.secondary,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                      ),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _pages[_currentPage].color,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                           ),
@@ -230,13 +221,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                 letterSpacing: 1.5,
                               ),
                             ),
-                            SizedBox(width: 4),
-                            Icon(Icons.arrow_forward_rounded, color: Colors.black, size: 18),
+                            SizedBox(width: 8),
+                            Icon(Icons.arrow_forward_rounded, color: Colors.black, size: 20),
                           ],
                         ),
                       ),
                     ],
-                  )
+                  ).animate(key: ValueKey('btn_next_${_currentPage}')).fade(duration: 400.ms)
                 else
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -244,43 +235,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _pages[_currentPage].color,
-                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          padding: const EdgeInsets.symmetric(vertical: 20),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                           elevation: 4,
                         ),
-                        onPressed: () => _completeWalkthrough('/login?mode=register'),
+                        onPressed: () => _completeWalkthrough('/login'),
                         child: const Text(
-                          'CREATE ACCOUNT',
+                          'ACCEPT',
                           style: TextStyle(
                             fontWeight: FontWeight.w900,
                             color: Colors.black,
-                            fontSize: 15,
-                            letterSpacing: 1.5,
+                            fontSize: 16,
+                            letterSpacing: 2,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.white.withOpacity(0.4), width: 1.5),
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        onPressed: () => _completeWalkthrough('/login?mode=login'),
-                        child: const Text(
-                          'SIGN IN',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            fontSize: 15,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                      ),
+                      ).animate().slideY(begin: 0.5, end: 0, duration: 500.ms, curve: Curves.easeOutBack).fade(),
                     ],
                   ),
                 const SizedBox(height: 12),
@@ -298,6 +269,8 @@ class WalkthroughPageData {
   final String subtitle;
   final String description;
   final IconData icon;
+  final bool useLogoImage;
+  final String? imagePath;
   final Color color;
 
   WalkthroughPageData({
@@ -305,6 +278,8 @@ class WalkthroughPageData {
     required this.subtitle,
     required this.description,
     required this.icon,
+    this.useLogoImage = false,
+    this.imagePath,
     required this.color,
   });
 }

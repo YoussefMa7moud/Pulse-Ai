@@ -65,6 +65,10 @@ class AiService {
   /// Generates the daily brief shown on the Home screen.
   /// Uses today's full health data as context.
   Future<String> getDailyBrief(DailyScore score, {DailyMetric? todayMetric}) async {
+    if (score.recovery == 0 && score.sleep == 0) {
+      return "It looks like there's no data for today yet! Wear your device to sleep or sync your data to generate your daily brief. Check back later once your data is synced!";
+    }
+
     final dateStr = DateFormat('yyyy-MM-dd').format(score.date);
     final cacheKey = 'daily_brief_$dateStr';
 
@@ -97,6 +101,17 @@ class AiService {
     if (scoreHistory.isEmpty) {
       return List.generate(5, (_) =>
           'Not enough data yet. Connect your health data source and sync to see personalised insights.');
+    }
+    
+    final today = scoreHistory.first;
+    if (today.recovery == 0 && today.sleep == 0) {
+      return [
+        'Not enough data for today yet.',
+        'Wear your device to sleep or sync your data to generate your daily insights.',
+        'Insights require at least some activity or sleep data to be accurate.',
+        'Check back later after your device has synced.',
+        'Waiting for biometric data...'
+      ];
     }
 
     final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
@@ -134,6 +149,15 @@ class AiService {
   /// Generates one-line explanations for each score card on the Home screen.
   Future<Map<String, String>> getScoreExplanations(DailyScore score,
       {DailyMetric? todayMetric}) async {
+    if (score.recovery == 0 && score.sleep == 0) {
+      return {
+        'sleep': 'Waiting for data sync.',
+        'strain': 'Waiting for data sync.',
+        'readiness': 'Waiting for data sync.',
+        'energy': 'Waiting for data sync.',
+      };
+    }
+
     final dateStr = DateFormat('yyyy-MM-dd').format(score.date);
     final cacheKey = 'score_expl_$dateStr';
 
@@ -185,6 +209,10 @@ class AiService {
   /// Generates a 2-sentence recovery strategy for the Recovery screen + home widget.
   Future<String> getRecoveryInsight(DailyScore score,
       {DailyMetric? todayMetric}) async {
+    if (score.recovery == 0 && score.sleep == 0) {
+      return 'Waiting for more biometric data to generate recovery insight.';
+    }
+
     final dateStr = DateFormat('yyyy-MM-dd').format(score.date);
     final cacheKey = 'recovery_insight_$dateStr';
 

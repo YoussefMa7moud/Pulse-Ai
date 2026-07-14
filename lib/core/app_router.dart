@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 import '../presentation/navigation/app_scaffold.dart';
 import 'theme.dart';
+import '../presentation/screens/splash/splash_screen.dart';
 import '../presentation/screens/home/home_screen.dart';
 import '../presentation/screens/gym/exercise_screen.dart';
 import '../presentation/screens/gym/workout_detail_screen.dart';
@@ -20,11 +21,15 @@ import '../presentation/providers/providers.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/splash',
     redirect: (context, state) async {
       final user = sb.Supabase.instance.client.auth.currentUser;
-      final loggingIn = state.matchedLocation == '/login';
+      final isSplash = state.matchedLocation == '/splash';
+      final isLoggingIn = state.matchedLocation == '/login';
       final isOnboarding = state.matchedLocation == '/onboarding';
+
+      // Allow splash screen to handle its own navigation
+      if (isSplash) return null;
 
       if (user == null) {
         final prefs = ref.read(sharedPreferencesProvider);
@@ -33,16 +38,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (!completedWalkthrough) {
           return isOnboarding ? null : '/onboarding';
         }
-        return (loggingIn || isOnboarding) ? null : '/login';
+        return (isLoggingIn || isOnboarding) ? null : '/login';
       }
 
-      if (loggingIn || isOnboarding) {
+      if (isLoggingIn || isOnboarding) {
         return '/';
       }
 
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/login',
         builder: (context, state) {
