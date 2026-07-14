@@ -7,6 +7,7 @@ import '../../../widgets/glass_container.dart';
 import '../../../widgets/animated_background.dart';
 import '../../../services/ai_service.dart';
 import '../../../widgets/pulse_loader.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class ScoreDetailScreen extends ConsumerStatefulWidget {
   final String scoreType;
@@ -104,7 +105,16 @@ class _ScoreDetailScreenState extends ConsumerState<ScoreDetailScreen> {
                     if (isLoading)
                       const Center(child: Padding(padding: EdgeInsets.all(32), child: PulseLoadingIndicator(size: 50, message: 'Consulting AI coach...')))
                     else
-                      Text(aiInsight ?? "No insight available.", style: TextStyle(fontSize: 16, height: 1.6, color: PulseTheme.primary)),
+                      MarkdownBody(
+                        data: aiInsight ?? "No insight available.",
+                        styleSheet: MarkdownStyleSheet(
+                          p: TextStyle(fontSize: 16, height: 1.6, color: PulseTheme.primary),
+                          h3: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: primaryColor, height: 1.8),
+                          h4: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: primaryColor, height: 1.8),
+                          strong: TextStyle(fontWeight: FontWeight.bold, color: PulseTheme.primary),
+                          listBullet: TextStyle(color: primaryColor, fontSize: 16),
+                        ),
+                      ),
                   ],
                 ),
               ),

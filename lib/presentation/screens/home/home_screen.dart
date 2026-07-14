@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme.dart';
 import '../../providers/providers.dart';
 import '../../providers/data_providers.dart';
+import '../../../data/database_service.dart';
 import '../../../widgets/glass_container.dart';
 import '../../../widgets/styled_card.dart';
 import '../../../widgets/animated_background.dart';
@@ -244,6 +245,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             color: PulseTheme.primary,
             backgroundColor: PulseTheme.surfaceLight,
             onRefresh: () async {
+              final db = ref.read(databaseProvider);
+              await db.clearAllInsightsCache();
               final syncUseCase = ref.read(syncUseCaseProvider);
               await syncUseCase.syncToday();
               ref.invalidate(todayScoresProvider);

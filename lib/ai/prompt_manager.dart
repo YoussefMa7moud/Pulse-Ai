@@ -293,9 +293,10 @@ class PromptManager {
 
   static String get dailyBriefPrompt =>
       '$baseSystemPrompt\n\n'
-      'Generate a DAILY BRIEF for the user based on their Huawei Health data below. '
-      'Output MUST be exactly one short, punchy sentence of advice for the day (under 25 words). '
-      'State the main physiological advice tailored to their actual numbers today. Reference specific metrics by value.';
+      'Generate a DAILY BRIEF for the user based on their Health data below. '
+      'Give them a GREAT, highly actionable idea for the day. Specifically advise them on HOW to start their day (e.g., hydration, stretching, mindset) '
+      'and clearly state WHETHER THEY SHOULD TRAIN TODAY or rest, based on their recovery and strain. '
+      'Keep it under 3-4 sentences but make it incredibly useful, motivational, and tailored to their actual numbers. Do not use markdown like asterisks or hashtags here.';
 
   static String get recoveryAnalysisPrompt =>
       '$baseSystemPrompt\n\n'

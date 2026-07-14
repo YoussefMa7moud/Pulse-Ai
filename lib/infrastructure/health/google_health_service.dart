@@ -299,15 +299,15 @@ class GoogleHealthService implements HealthRepository {
       
       final seen = <String>{};
       final healthData = rawData.where((p) {
-        // Fallback to a compound key if UUID is empty/null, avoiding complete suppression
-        final uuid = p.uuid.isEmpty ? 'gen_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}' : p.uuid;
-        final key = '${uuid}_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}';
+        final dynamicUuid = (p.uuid as dynamic);
+        final uuidStr = (dynamicUuid == null || dynamicUuid.toString().isEmpty) 
+            ? 'gen_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}' 
+            : dynamicUuid.toString();
+        final key = '${uuidStr}_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}';
         final isNew = seen.add(key);
-        debugPrint('[GoogleHealthService] Workout point: uuid=${p.uuid}, dateFrom=${p.dateFrom}, dateTo=${p.dateTo}, isDuplicate=${!isNew}');
         return isNew;
       }).toList();
       
-      // Determine target date in YYYY-MM-DD formats for BOTH local and UTC to avoid boundary filter loss
       final dayStrLocal = DateFormat('yyyy-MM-dd').format(day.toLocal());
       final dayStrUtc = DateFormat('yyyy-MM-dd').format(day.toUtc());
 
@@ -316,7 +316,6 @@ class GoogleHealthService implements HealthRepository {
         final pointUtcStr = DateFormat('yyyy-MM-dd').format(point.dateFrom.toUtc());
         
         final matches = (pointLocalStr == dayStrLocal) || (pointUtcStr == dayStrUtc);
-        debugPrint('[GoogleHealthService] Filtering workout: pointLocalStr=$pointLocalStr, pointUtcStr=$pointUtcStr, targetDayLocal=$dayStrLocal, targetDayUtc=$dayStrUtc, matches=$matches');
         return matches;
       }).toList();
 
@@ -327,19 +326,26 @@ class GoogleHealthService implements HealthRepository {
         double? calories;
         double? distance;
 
-        if (point.value is WorkoutHealthValue) {
-          final val = point.value as WorkoutHealthValue;
-          workoutTypeName = _formatWorkoutType(val.workoutActivityType.name);
-          calories = val.totalEnergyBurned?.toDouble();
-          distance = val.totalDistance?.toDouble();
-          debugPrint('[GoogleHealthService] Workout details: type=$workoutTypeName, calories=$calories kcal, distance=$distance m');
-        } else if (point.value is NumericHealthValue) {
-          calories = (point.value as NumericHealthValue).numericValue.toDouble();
-          debugPrint('[GoogleHealthService] Numeric workout details: calories=$calories kcal');
+        try {
+          if (point.value is WorkoutHealthValue) {
+            final val = point.value as WorkoutHealthValue;
+            workoutTypeName = _formatWorkoutType(val.workoutActivityType.name);
+            calories = val.totalEnergyBurned?.toDouble();
+            distance = val.totalDistance?.toDouble();
+          } else if (point.value is NumericHealthValue) {
+            calories = (point.value as NumericHealthValue).numericValue.toDouble();
+          }
+        } catch (e) {
+          debugPrint('[GoogleHealthService] Error parsing workout value: $e');
         }
 
         final pointLocal = point.dateFrom.toLocal();
         final workoutDate = DateTime(pointLocal.year, pointLocal.month, pointLocal.day);
+
+        final dynamicUuid = (point.uuid as dynamic);
+        final safeUuid = (dynamicUuid == null || dynamicUuid.toString().isEmpty) 
+            ? 'gen_${point.dateFrom.millisecondsSinceEpoch}_${point.dateTo.millisecondsSinceEpoch}' 
+            : dynamicUuid.toString();
 
         final workout = WorkoutSession(
           date: workoutDate,
@@ -349,7 +355,7 @@ class GoogleHealthService implements HealthRepository {
           ..workoutType = workoutTypeName
           ..durationSeconds = point.dateTo.difference(point.dateFrom).inSeconds
           ..totalCaloriesKcal = calories
-          ..activityId = point.uuid
+          ..activityId = safeUuid
           ..distanceMeters = distance;
         return workout;
       }).toList();

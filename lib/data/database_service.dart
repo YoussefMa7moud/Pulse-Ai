@@ -390,6 +390,16 @@ class DatabaseService {
     });
   }
 
+  Future<void> clearInsightsCache() async {
+    if (userId.isEmpty) return;
+    await client.from('ai_cache').delete().eq('user_id', userId).eq('type', 'dynamic_insights');
+  }
+
+  Future<void> clearAllInsightsCache() async {
+    if (userId.isEmpty) return;
+    await client.from('ai_cache').delete().eq('user_id', userId);
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // CHAT HISTORY
   // ─────────────────────────────────────────────────────────────────────────

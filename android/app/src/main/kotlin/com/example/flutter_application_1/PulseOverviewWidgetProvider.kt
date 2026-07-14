@@ -42,7 +42,12 @@ class PulseOverviewWidgetProvider : HomeWidgetProvider() {
                     context, this, widgetData,
                     R.drawable.widget_bg_vitals,
                     R.drawable.widget_bg_vitals_light,
-                    intArrayOf(R.id.overview_recovery),
+                    intArrayOf(
+                        R.id.overview_recovery,
+                        R.id.overview_strain,
+                        R.id.overview_sleep,
+                        R.id.overview_stress
+                    ),
                     intArrayOf(
                         R.id.label_rec,
                         R.id.label_strain,
