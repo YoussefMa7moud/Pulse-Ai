@@ -3,68 +3,87 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_bg_dark"
-    android:padding="16dp">
+    android:background="@drawable/widget_bg_dark">
 
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:gravity="center_horizontal"
-        android:orientation="vertical">
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/vector_stress_bg"
+        android:scaleType="centerCrop" />
 
-        <FrameLayout
-            android:layout_width="78dp"
-            android:layout_height="78dp">
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="16dp">
 
-            <ProgressBar
-                android:id="@+id/stress_progress"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="78dp"
-                android:layout_height="78dp"
-                android:indeterminate="false"
-                android:max="100"
-                android:progress="0"
-                android:progressDrawable="@drawable/widget_circular_progress_red" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentStart="true"
+            android:text="STRESS"
+            android:textColor="#F43F5E"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:orientation="vertical"
+            android:gravity="center">
 
             <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:orientation="vertical">
-
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="bottom">
                 <TextView
                     android:id="@+id/widget_stress_score"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="--"
-                    android:textColor="#F43F5E"
-                    android:textSize="26sp"
-                    android:textStyle="bold" />
-
+                    android:textColor="#FFFFFF"
+                    android:textSize="36sp"
+                    android:textStyle="bold"
+                    android:includeFontPadding="false" />
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="STRESS"
-                    android:textAllCaps="true"
+                    android:layout_marginStart="4dp"
+                    android:text="/100"
                     android:textColor="#9CA3AF"
-                    android:textSize="8sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.1" />
-
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
             </LinearLayout>
+        </LinearLayout>
 
-        </FrameLayout>
-
-        <TextView
-            android:id="@+id/widget_stress_level"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="--"
-            android:textColor="#6B7280"
-            android:textSize="11sp" />
+            android:layout_alignParentBottom="true"
+            android:orientation="vertical">
 
-    </LinearLayout>
+            <TextView
+                android:id="@+id/widget_stress_level"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Level: --"
+                android:textColor="#D1D5DB"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="6dp" />
 
+            <ProgressBar
+                android:id="@+id/stress_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:indeterminate="false"
+                android:max="100"
+                android:progress="0"
+                android:progressDrawable="@drawable/widget_circular_progress_red" />
+        </LinearLayout>
+    </RelativeLayout>
 </FrameLayout>

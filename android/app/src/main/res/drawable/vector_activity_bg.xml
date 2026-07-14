@@ -1,0 +1,17 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200"
+    android:alpha="0.12">
+    <!-- Abstract slanted track / athletic stripes -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M -20,220 L 80,-20 L 120,-20 L 20,220 Z" />
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M 40,220 L 140,-20 L 160,-20 L 60,220 Z" />
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M 100,220 L 200,-20 L 220,-20 L 120,220 Z" />
+</vector>

@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200"
+    android:alpha="0.12">
+    <!-- Concentric glowing circles for recovery -->
+    <path
+        android:strokeColor="#22D3EE"
+        android:strokeWidth="2"
+        android:pathData="M 100,100 m -40,0 a 40,40 0 1,0 80,0 a 40,40 0 1,0 -80,0" />
+    <path
+        android:strokeColor="#22D3EE"
+        android:strokeWidth="4"
+        android:pathData="M 100,100 m -60,0 a 60,60 0 1,0 120,0 a 60,60 0 1,0 -120,0" />
+    <path
+        android:strokeColor="#22D3EE"
+        android:strokeWidth="8"
+        android:pathData="M 100,100 m -80,0 a 80,80 0 1,0 160,0 a 80,80 0 1,0 -160,0" />
+</vector>
