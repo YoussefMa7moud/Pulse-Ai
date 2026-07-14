@@ -37,7 +37,7 @@ class _ScoreDetailScreenState extends ConsumerState<ScoreDetailScreen> {
       return;
     }
 
-    if (score.recovery == 0 && score.sleep == 0) {
+    if (score.recoveryScore == 0 && score.sleepScore == 0) {
       if (mounted) {
         setState(() {
           aiInsight = "Not enough data for today yet. Wear your device or sync your data to generate detailed insights. Check back later!";
@@ -50,7 +50,7 @@ class _ScoreDetailScreenState extends ConsumerState<ScoreDetailScreen> {
     try {
       final prompt = "You are Pulse AI. The user clicked on their ${widget.scoreType} score. "
           "Their latest score object is: "
-          "{recovery: ${score.recovery}, strain: ${score.strain}, sleep: ${score.sleep}, energy: ${score.energy}}. "
+          "{recovery: ${score.recoveryScore}, strain: ${score.strainScore}, sleep: ${score.sleepScore}, energy: ${score.energyScore}}. "
           "Explain what is different from yesterday (if applicable, else just explain today), "
           "what they did right, what they did wrong, and what they should do next to improve. "
           "Keep it concise, supportive, and use markdown formatting.";

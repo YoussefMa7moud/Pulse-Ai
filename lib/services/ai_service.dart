@@ -65,7 +65,7 @@ class AiService {
   /// Generates the daily brief shown on the Home screen.
   /// Uses today's full health data as context.
   Future<String> getDailyBrief(DailyScore score, {DailyMetric? todayMetric}) async {
-    if (score.recovery == 0 && score.sleep == 0) {
+    if (score.recoveryScore == 0 && score.sleepScore == 0) {
       return "It looks like there's no data for today yet! Wear your device to sleep or sync your data to generate your daily brief. Check back later once your data is synced!";
     }
 
@@ -104,7 +104,7 @@ class AiService {
     }
     
     final today = scoreHistory.first;
-    if (today.recovery == 0 && today.sleep == 0) {
+    if (today.recoveryScore == 0 && today.sleepScore == 0) {
       return [
         'Not enough data for today yet.',
         'Wear your device to sleep or sync your data to generate your daily insights.',
@@ -149,7 +149,7 @@ class AiService {
   /// Generates one-line explanations for each score card on the Home screen.
   Future<Map<String, String>> getScoreExplanations(DailyScore score,
       {DailyMetric? todayMetric}) async {
-    if (score.recovery == 0 && score.sleep == 0) {
+    if (score.recoveryScore == 0 && score.sleepScore == 0) {
       return {
         'sleep': 'Waiting for data sync.',
         'strain': 'Waiting for data sync.',
@@ -209,7 +209,7 @@ class AiService {
   /// Generates a 2-sentence recovery strategy for the Recovery screen + home widget.
   Future<String> getRecoveryInsight(DailyScore score,
       {DailyMetric? todayMetric}) async {
-    if (score.recovery == 0 && score.sleep == 0) {
+    if (score.recoveryScore == 0 && score.sleepScore == 0) {
       return 'Waiting for more biometric data to generate recovery insight.';
     }
 
