@@ -30,48 +30,79 @@ class SyncUseCase {
   SyncUseCase(this._healthRepo, this._db);
 
   Future<SyncResult> syncAll({int daysBack = 30}) async {
-    debugPrint('[SyncUseCase] Starting full sync ($daysBack days)...');
+    debugPrint('┌─────────────────────────────────────────────────────────────');
+    debugPrint('│ [PIPELINE][SYNC] syncAll START — daysBack=$daysBack');
+    debugPrint('└─────────────────────────────────────────────────────────────');
 
     try {
       final profile = await _db.getUserProfile();
       final end = DateTime.now();
       final start = end.subtract(Duration(days: daysBack));
 
-      final List<DailyMetric> allMetrics = [];
-      final List<WorkoutSession> allWorkouts = [];
+      debugPrint('[PIPELINE][SYNC] Date range: $start → $end');
 
-      DateTime current = start;
-      while (!current.isAfter(end)) {
-        try {
-          final metric = await _healthRepo.fetchMetricsForDay(current);
-          final workouts = await _healthRepo.fetchWorkoutsForDay(current);
-          
-          if (workouts.isNotEmpty) {
-            metric.workoutSessionCount = workouts.length;
-          }
-          
-          _applyProfileToMetric(metric, profile);
-          allMetrics.add(metric);
-          allWorkouts.addAll(workouts);
-        } catch (e) {
-          debugPrint('[SyncUseCase] Error fetching ${current.toIso8601String()}: $e');
+      // ── 1. Bulk-fetch ALL workouts in a single Health Connect call ──
+      debugPrint('[PIPELINE][SYNC] Step 1: Fetching ALL workouts via fetchWorkoutsInRange...');
+      final List<WorkoutSession> allWorkouts = await _healthRepo.fetchWorkoutsInRange(start, end);
+      debugPrint('[PIPELINE][SYNC] Step 1 complete: ${allWorkouts.length} workouts fetched');
+
+      // ── 2. Bulk-fetch daily metrics via range query (limit to max 30 days to prevent Health Connect IPC block)
+      final metricStart = daysBack > 30 ? end.subtract(const Duration(days: 30)) : start;
+      debugPrint('[PIPELINE][SYNC] Step 2: Bulk-fetching daily metrics from $metricStart to $end...');
+      final List<DailyMetric> rawMetrics = await _healthRepo.fetchMetricsInRange(metricStart, end);
+
+
+      final List<DailyMetric> allMetrics = [];
+      for (final metric in rawMetrics) {
+        final dayStr = "${metric.date.year}-${metric.date.month.toString().padLeft(2, '0')}-${metric.date.day.toString().padLeft(2, '0')}";
+        final dayWorkouts = allWorkouts.where((w) {
+          final wStr = "${w.date.year}-${w.date.month.toString().padLeft(2, '0')}-${w.date.day.toString().padLeft(2, '0')}";
+          return wStr == dayStr;
+        }).toList();
+
+        if (dayWorkouts.isNotEmpty) {
+          metric.workoutSessionCount = dayWorkouts.length;
         }
-        current = current.add(const Duration(days: 1));
+
+        _applyProfileToMetric(metric, profile);
+        allMetrics.add(metric);
       }
+
 
       // Log summary of what was fetched
       final daysWithSteps = allMetrics.where((m) => m.steps != null && m.steps! > 0).length;
       final daysWithSleep = allMetrics.where((m) => m.totalSleepMinutes != null && m.totalSleepMinutes! > 0).length;
       final daysWithHR = allMetrics.where((m) => m.averageHeartRate != null).length;
-      debugPrint('[SyncUseCase] Fetched ${allMetrics.length} days: $daysWithSteps with steps, $daysWithSleep with sleep, $daysWithHR with HR, ${allWorkouts.length} workouts');
+      debugPrint('[PIPELINE][SYNC] Step 2 complete: ${allMetrics.length} days — '
+          '$daysWithSteps with steps, $daysWithSleep with sleep, $daysWithHR with HR');
 
+      // ── 3. Persist to Supabase ──
+      debugPrint('[PIPELINE][SYNC] Step 3: Persisting ${allMetrics.length} metrics and ${allWorkouts.length} workouts to Supabase...');
       await _db.upsertMetrics(allMetrics);
       await _db.upsertWorkoutSessions(allWorkouts);
 
+      // Verify workouts were actually written
+      if (allWorkouts.isNotEmpty) {
+        final verifyWorkouts = await _db.getAllWorkouts();
+        debugPrint('[PIPELINE][SYNC] Step 3 VERIFY: ${verifyWorkouts.length} workouts now in DB (attempted to write ${allWorkouts.length})');
+        if (verifyWorkouts.isEmpty) {
+          debugPrint('[PIPELINE][SYNC] ⚠⚠⚠ CRITICAL: Workouts were fetched from Health Connect but NONE exist in DB after upsert!');
+          debugPrint('[PIPELINE][SYNC] This likely means the Supabase workout_sessions table has issues.');
+        }
+      }
+      debugPrint('[PIPELINE][SYNC] Step 3 complete: data persisted');
+
+      // ── 4. Recalculate scores ──
+      debugPrint('[PIPELINE][SYNC] Step 4: Recalculating scores...');
       await _recalculateScores(allMetrics);
 
       profile.lastSyncDate = DateTime.now();
       await _db.saveUserProfile(profile);
+
+      debugPrint('┌─────────────────────────────────────────────────────────────');
+      debugPrint('│ [PIPELINE][SYNC] syncAll COMPLETE');
+      debugPrint('│ days=${allMetrics.length}, workouts=${allWorkouts.length}');
+      debugPrint('└─────────────────────────────────────────────────────────────');
 
       return SyncResult(
         success: true,
@@ -80,14 +111,22 @@ class SyncUseCase {
         completedAt: DateTime.now(),
       );
     } catch (e, stack) {
-      debugPrint('[SyncUseCase] syncAll error: $e\n$stack');
+      debugPrint('[PIPELINE][SYNC] ❌ syncAll error: $e\n$stack');
+      final errStr = e.toString();
+      final isOfflineErr = errStr.contains('SocketException') ||
+          errStr.contains('ClientException') ||
+          errStr.contains('Failed host lookup') ||
+          errStr.contains('NetworkImage') ||
+          errStr.contains('Network');
       return SyncResult(
         success: false,
-        error: e.toString(),
+        error: isOfflineErr ? 'Offline mode active. Displaying cached data.' : e.toString(),
         completedAt: DateTime.now(),
       );
     }
+
   }
+
 
   void _applyProfileToMetric(DailyMetric metric, UserProfile profile) {
     if (metric.weightKg == null || metric.weightKg == 0.0) {

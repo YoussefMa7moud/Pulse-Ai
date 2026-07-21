@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
 import 'providers.dart';
@@ -64,11 +65,21 @@ final todayWorkoutsProvider = FutureProvider<List<WorkoutSession>>((ref) async {
   return await db.getWorkoutsForDay(selectedDate);
 });
 
-/// Returns recent workout sessions (last 14 days) — used by AI for training load context.
+/// Returns recent workout sessions (last 30 days) — used by AI for training load context.
 final recentWorkoutsProvider = FutureProvider<List<WorkoutSession>>((ref) async {
   final db = ref.watch(databaseProvider);
   return await db.getRecentWorkouts(days: 30);
 });
+
+/// Returns ALL workout sessions for the current user — no date restriction.
+/// This is the provider used by the Exercise tab to show complete workout history.
+final allWorkoutsProvider = FutureProvider<List<WorkoutSession>>((ref) async {
+  final db = ref.watch(databaseProvider);
+  final workouts = await db.getAllWorkouts();
+  debugPrint('[PIPELINE][UI] allWorkoutsProvider loaded: ${workouts.length} workouts');
+  return workouts;
+});
+
 
 /// Returns "Strength Training" sessions that haven't been linked to a GymRoutine yet.
 final unlinkedStrengthWorkoutsProvider = FutureProvider<List<WorkoutSession>>((ref) async {
@@ -163,6 +174,7 @@ final forceSyncProvider = FutureProvider<SyncResult>((ref) async {
     ref.invalidate(todayScoresProvider);
     ref.invalidate(todayWorkoutsProvider);
     ref.invalidate(recentWorkoutsProvider);
+    ref.invalidate(allWorkoutsProvider);
     ref.invalidate(unlinkedStrengthWorkoutsProvider);
   }
 
@@ -177,6 +189,7 @@ void invalidateAllDataProviders(WidgetRef ref) {
   ref.invalidate(historyScoresProvider);
   ref.invalidate(todayWorkoutsProvider);
   ref.invalidate(recentWorkoutsProvider);
+  ref.invalidate(allWorkoutsProvider);
   ref.invalidate(unlinkedStrengthWorkoutsProvider);
   ref.invalidate(healthAuthStateProvider);
 }

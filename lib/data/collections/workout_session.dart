@@ -112,7 +112,7 @@ class WorkoutSession {
     final dateStr = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
     return {
       if (id != null) 'id': id,
-      'activity_id': activityId,
+      'activity_id': activityId ?? 'gen_${startTime?.millisecondsSinceEpoch ?? date.millisecondsSinceEpoch}_${endTime?.millisecondsSinceEpoch ?? 0}_${(workoutType ?? "workout").toLowerCase().replaceAll(" ", "_")}',
       'date': dateStr,
       'start_time': startTime?.toIso8601String(),
       'end_time': endTime?.toIso8601String(),
@@ -144,4 +144,5 @@ class WorkoutSession {
       'gps_route_json': gpsRouteJson,
     };
   }
+
 }

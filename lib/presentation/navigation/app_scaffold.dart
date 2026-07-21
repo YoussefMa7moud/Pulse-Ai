@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme.dart';
 
+import '../../services/network_service.dart';
+import '../providers/data_providers.dart';
+
 class AppScaffold extends ConsumerWidget {
   final Widget child;
 
@@ -13,14 +16,19 @@ class AppScaffold extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Watch themeSettingsProvider to trigger rebuild of bottom navigation on theme changes
     ref.watch(themeSettingsProvider);
+    final isOffline = ref.watch(isOfflineProvider);
 
     return Scaffold(
       extendBody: true, // Content flows behind the floating navigation bar
-      body: child,
-      bottomNavigationBar: const _BottomNav(),
+      body: isOffline
+          ? const _OfflineFullScreenBlock()
+          : child,
+      bottomNavigationBar: isOffline ? null : const _BottomNav(),
     );
   }
 }
+
+
 
 class _BottomNav extends ConsumerWidget {
   const _BottomNav();
@@ -173,3 +181,148 @@ class _BottomNav extends ConsumerWidget {
     );
   }
 }
+
+class _OfflineFullScreenBlock extends ConsumerWidget {
+  const _OfflineFullScreenBlock();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Color(0xFF0F0C20),
+              Color(0xFF15102A),
+              Color(0xFF090615),
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Stack(
+          children: [
+            // Decorative background glow
+            Positioned(
+              top: -100,
+              right: -100,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: PulseTheme.accent.withOpacity(0.08),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -50,
+              left: -50,
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: PulseTheme.primary.withOpacity(0.05),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // WiFi Off Glass Icon
+                      Container(
+                        padding: const EdgeInsets.all(28),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withOpacity(0.03),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.08),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.wifi_off_rounded,
+                          size: 64,
+                          color: Colors.amberAccent,
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      Text(
+                        'CONNECTION LOST',
+                        style: textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 3.0,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Pulse AI requires an active internet connection to synchronize your health statistics, load workouts, and query data from Supabase.',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.white70,
+                          height: 1.6,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 48),
+                      // Premium retry button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final isConnected = await ref.read(isOfflineProvider.notifier).checkConnectivity();
+                            if (isConnected && context.mounted) {
+                              invalidateAllDataProviders(ref);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Back online! Syncing latest data...'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.refresh_rounded, color: Colors.black87),
+                          label: const Text(
+                            'TRY AGAIN',
+                            style: TextStyle(
+                              color: Colors.black87,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.5,
+                              fontSize: 14,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.amberAccent,
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

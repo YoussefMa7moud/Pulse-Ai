@@ -22,19 +22,39 @@ class ExerciseScreen extends ConsumerStatefulWidget {
 
 class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
   bool _isSyncing = false;
+  bool _hasAutoSynced = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncAndRefresh());
+    // Auto-sync once after screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoSyncIfEmpty();
+    });
   }
 
-  Future<void> _syncAndRefresh() async {
+  /// Automatically triggers sync if there are no workouts in the DB.
+  Future<void> _autoSyncIfEmpty() async {
+    if (_hasAutoSynced || _isSyncing) return;
+    _hasAutoSynced = true;
+    try {
+      final workouts = await ref.read(allWorkoutsProvider.future);
+      if (workouts.isEmpty && mounted) {
+        debugPrint('[ExerciseScreen] Auto-sync: no workouts in DB, triggering sync...');
+        await _syncAndRefresh();
+      }
+    } catch (_) {
+      // If provider fails, try sync anyway
+      if (mounted) await _syncAndRefresh();
+    }
+  }
+
+  Future<void> _syncAndRefresh({int daysBack = 30}) async {
     if (_isSyncing) return;
     setState(() => _isSyncing = true);
     try {
       final syncUseCase = ref.read(syncUseCaseProvider);
-      final result = await syncUseCase.syncAll(daysBack: 30);
+      final result = await syncUseCase.syncAll(daysBack: daysBack);
       ref.read(syncResultProvider.notifier).state = result;
     } catch (e) {
       ref.read(syncResultProvider.notifier).state = SyncResult(
@@ -44,9 +64,10 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       );
     }
     if (!mounted) return;
-    ref.invalidate(recentWorkoutsProvider);
+    ref.invalidate(allWorkoutsProvider);
     setState(() => _isSyncing = false);
   }
+
 
   IconData _getSportIcon(String? type) {
     if (type == null) return Icons.sports_rounded;
@@ -114,7 +135,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final workoutsAsync = ref.watch(recentWorkoutsProvider);
+    final workoutsAsync = ref.watch(allWorkoutsProvider);
     final textTheme = Theme.of(context).textTheme;
     final textColor = PulseTheme.isDark ? Colors.white : Colors.black87;
     final subColor = PulseTheme.isDark ? Colors.white70 : Colors.black54;

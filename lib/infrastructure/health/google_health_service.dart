@@ -63,119 +63,165 @@ class GoogleHealthService implements HealthRepository {
 
   @override
   Future<DailyMetric> fetchMetricsForDay(DateTime day) async {
-    final localStart = DateTime(day.year, day.month, day.day);
-    final localEnd = localStart.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
+    final list = await fetchMetricsInRange(day, day);
+    if (list.isNotEmpty) return list.first;
+    return DailyMetric(date: DateTime.utc(day.year, day.month, day.day));
+  }
 
-    final utcDate = DateTime.utc(day.year, day.month, day.day);
-    final metric = DailyMetric(date: utcDate);
+  @override
+  Future<List<DailyMetric>> fetchMetricsInRange(DateTime start, DateTime end) async {
+    final rangeStart = DateTime(start.year, start.month, start.day);
+    final rangeEnd = DateTime(end.year, end.month, end.day, 23, 59, 59, 999);
 
-    final start = localStart;
-    final end = localEnd;
+    debugPrint('┌─────────────────────────────────────────────────────────────');
+    debugPrint('│ [PIPELINE] fetchMetricsInRange START (range=$rangeStart → $rangeEnd)');
+    debugPrint('└─────────────────────────────────────────────────────────────');
 
-    try {
-      debugPrint('[GoogleHealth] Fetching day=${day.toIso8601String()}, local=$start→$end, utcKey=$utcDate');
-      
+    final Map<HealthDataType, List<HealthDataPoint>> typeDataMap = {};
+    for (final type in _dataTypes) {
+      typeDataMap[type] = [];
+    }
+
+    // Chunk date range into safe 14-day windows to prevent Health Connect IPC parcel overflow / hanging
+    const int chunkDays = 14;
+    DateTime chunkStart = rangeStart.subtract(const Duration(hours: 12));
+
+    while (!chunkStart.isAfter(rangeEnd)) {
+      DateTime chunkEnd = chunkStart.add(const Duration(days: chunkDays));
+      if (chunkEnd.isAfter(rangeEnd)) {
+        chunkEnd = rangeEnd;
+      }
+
+      for (final type in _dataTypes) {
+        try {
+          final rawData = await _health.getHealthDataFromTypes(
+            types: [type],
+            startTime: chunkStart,
+            endTime: chunkEnd,
+          );
+          final seen = <String>{};
+          final data = rawData.where((p) {
+            final key = '${p.uuid}_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}';
+            return seen.add(key);
+          }).toList();
+
+          typeDataMap[type]!.addAll(data);
+        } catch (e) {
+          debugPrint('[PIPELINE] Error chunk fetching $type ($chunkStart → $chunkEnd): $e');
+        }
+      }
+
+      chunkStart = chunkEnd.add(const Duration(milliseconds: 1));
+    }
+
+    // Deduplicate accumulated points per type
+    for (final type in _dataTypes) {
+      final seen = <String>{};
+      typeDataMap[type] = typeDataMap[type]!.where((p) {
+        final key = '${p.uuid}_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}';
+        return seen.add(key);
+      }).toList();
+      debugPrint('[PIPELINE] Bulk $type total points across range: ${typeDataMap[type]!.length}');
+    }
+
+    final List<DailyMetric> results = [];
+    DateTime current = rangeStart;
+    final endDate = DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day);
+
+
+    while (!current.isAfter(endDate)) {
+      final localStart = DateTime(current.year, current.month, current.day);
+      final localEnd = localStart.add(const Duration(days: 1)).subtract(const Duration(milliseconds: 1));
+      final utcDate = DateTime.utc(current.year, current.month, current.day);
+
+      final metric = DailyMetric(date: utcDate);
+
+      final dayStr = DateFormat('yyyy-MM-dd').format(localStart);
+
       final List<HealthDataPoint> heartRates = [];
       final List<HealthDataPoint> restingHeartRates = [];
       final List<HealthDataPoint> hrvs = [];
-      
       final List<HealthDataPoint> stepPoints = [];
       final List<HealthDataPoint> activeEnergyPoints = [];
       final List<HealthDataPoint> basalEnergyPoints = [];
       final List<HealthDataPoint> distancePoints = [];
       final List<HealthDataPoint> sleepPoints = [];
       final List<HealthDataPoint> workoutPoints = [];
-      
+
       double bodyFat = 0.0;
       double weight = 0.0;
       double spo2 = 0.0;
       double temp = 0.0;
 
-      for (final type in _dataTypes) {
-        try {
-          DateTime queryStart = start;
-          if (type == HealthDataType.SLEEP_SESSION || 
-              type == HealthDataType.SLEEP_ASLEEP || 
+      for (final entry in typeDataMap.entries) {
+        final type = entry.key;
+        final points = entry.value;
+
+        for (final p in points) {
+          if (type == HealthDataType.SLEEP_SESSION ||
+              type == HealthDataType.SLEEP_ASLEEP ||
               type == HealthDataType.SLEEP_LIGHT ||
               type == HealthDataType.SLEEP_DEEP ||
               type == HealthDataType.SLEEP_REM) {
-            queryStart = start.subtract(const Duration(hours: 12));
+            // Sleep sessions ending on day D belong to day D
+            final pEndLocalStr = DateFormat('yyyy-MM-dd').format(p.dateTo.toLocal());
+            if (pEndLocalStr == dayStr && p.dateTo.isAfter(localStart)) {
+              sleepPoints.add(p);
+            }
+          } else {
+            // Daily vitals and cumulative metrics matching this day
+            final pLocalStr = DateFormat('yyyy-MM-dd').format(p.dateFrom.toLocal());
+            if (pLocalStr == dayStr) {
+              switch (type) {
+                case HealthDataType.STEPS:
+                  stepPoints.add(p);
+                  break;
+                case HealthDataType.ACTIVE_ENERGY_BURNED:
+                  activeEnergyPoints.add(p);
+                  break;
+                case HealthDataType.BASAL_ENERGY_BURNED:
+                  basalEnergyPoints.add(p);
+                  break;
+                case HealthDataType.DISTANCE_DELTA:
+                  distancePoints.add(p);
+                  break;
+                case HealthDataType.HEART_RATE:
+                  heartRates.add(p);
+                  break;
+                case HealthDataType.RESTING_HEART_RATE:
+                  restingHeartRates.add(p);
+                  break;
+                case HealthDataType.HEART_RATE_VARIABILITY_RMSSD:
+                  hrvs.add(p);
+                  break;
+                case HealthDataType.BODY_FAT_PERCENTAGE:
+                  if (p.value is NumericHealthValue) {
+                    bodyFat = (p.value as NumericHealthValue).numericValue.toDouble();
+                  }
+                  break;
+                case HealthDataType.WEIGHT:
+                  if (p.value is NumericHealthValue) {
+                    weight = (p.value as NumericHealthValue).numericValue.toDouble();
+                  }
+                  break;
+                case HealthDataType.BLOOD_OXYGEN:
+                  if (p.value is NumericHealthValue) {
+                    spo2 = (p.value as NumericHealthValue).numericValue.toDouble();
+                  }
+                  break;
+                case HealthDataType.BODY_TEMPERATURE:
+                  if (p.value is NumericHealthValue) {
+                    temp = (p.value as NumericHealthValue).numericValue.toDouble();
+                  }
+                  break;
+                case HealthDataType.WORKOUT:
+                  workoutPoints.add(p);
+                  break;
+                default:
+                  break;
+              }
+            }
           }
-
-          final rawData = await _health.getHealthDataFromTypes(
-            types: [type], 
-            startTime: queryStart, 
-            endTime: end
-          );
-          final seen = <String>{};
-          final List<HealthDataPoint> data = rawData.where((p) {
-            final key = '${p.uuid}_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}';
-            return seen.add(key);
-          }).toList();
-
-          debugPrint('[GoogleHealth] $type: ${data.length} points from $queryStart→$end');
-
-          switch (type) {
-            case HealthDataType.STEPS:
-              stepPoints.addAll(data);
-              break;
-            case HealthDataType.ACTIVE_ENERGY_BURNED:
-              activeEnergyPoints.addAll(data);
-              break;
-            case HealthDataType.BASAL_ENERGY_BURNED:
-              basalEnergyPoints.addAll(data);
-              break;
-            case HealthDataType.DISTANCE_DELTA:
-              distancePoints.addAll(data);
-              break;
-            case HealthDataType.HEART_RATE:
-              heartRates.addAll(data);
-              break;
-            case HealthDataType.RESTING_HEART_RATE:
-              restingHeartRates.addAll(data);
-              break;
-            case HealthDataType.HEART_RATE_VARIABILITY_RMSSD:
-              hrvs.addAll(data);
-              break;
-            case HealthDataType.SLEEP_SESSION:
-            case HealthDataType.SLEEP_ASLEEP:
-            case HealthDataType.SLEEP_LIGHT:
-            case HealthDataType.SLEEP_DEEP:
-            case HealthDataType.SLEEP_REM:
-              for (var p in data) {
-                if (p.dateTo.isAfter(start)) {
-                  sleepPoints.add(p);
-                }
-              }
-              break;
-            case HealthDataType.BODY_FAT_PERCENTAGE:
-              if (data.isNotEmpty) {
-                bodyFat = (data.last.value as NumericHealthValue).numericValue.toDouble();
-              }
-              break;
-            case HealthDataType.WEIGHT:
-              if (data.isNotEmpty) {
-                weight = (data.last.value as NumericHealthValue).numericValue.toDouble();
-              }
-              break;
-            case HealthDataType.BLOOD_OXYGEN:
-              if (data.isNotEmpty) {
-                spo2 = (data.last.value as NumericHealthValue).numericValue.toDouble();
-              }
-              break;
-            case HealthDataType.BODY_TEMPERATURE:
-              if (data.isNotEmpty) {
-                temp = (data.last.value as NumericHealthValue).numericValue.toDouble();
-              }
-              break;
-            case HealthDataType.WORKOUT:
-              workoutPoints.addAll(data);
-              break;
-            default:
-              break;
-          }
-        } catch (e) {
-          debugPrint('[GoogleHealthService] Error fetching $type: $e');
         }
       }
 
@@ -185,7 +231,7 @@ class GoogleHealthService implements HealthRepository {
       final int steps = _aggregateCumulative(stepPoints).toInt();
       final double distance = _aggregateCumulative(distancePoints);
       final int exerciseDurationMinutes = _aggregateExerciseDuration(workoutPoints);
-      
+
       final sleepMap = _aggregateSleep(sleepPoints);
 
       metric.steps = steps;
@@ -198,14 +244,12 @@ class GoogleHealthService implements HealthRepository {
       if (finalBasal == 0.0) {
         final w = weight > 0 ? weight : (metric.weightKg ?? 75.0);
         finalBasal = w * 24.0;
-        debugPrint('[GoogleHealth] Estimated basal calories: $finalBasal');
       }
-      
+
       // Estimate Active Calories from steps if 0
       double finalActive = activeCalories;
       if (finalActive == 0.0 && steps > 0) {
         finalActive = steps * 0.04;
-        debugPrint('[GoogleHealth] Estimated active calories from steps: $finalActive');
       }
 
       metric.activeCalories = finalActive;
@@ -221,8 +265,6 @@ class GoogleHealthService implements HealthRepository {
       final filteredHeartRates = _filterByBestSource(heartRates);
       final filteredRestingHeartRates = _filterByBestSource(restingHeartRates);
       final filteredHrvs = _filterByBestSource(hrvs);
-
-      debugPrint('[GoogleHealth] Filtered HR samples: ${filteredHeartRates.length}, restingHR: ${filteredRestingHeartRates.length}, HRV: ${filteredHrvs.length}');
 
       if (filteredHeartRates.isNotEmpty) {
         double sum = 0;
@@ -254,7 +296,6 @@ class GoogleHealthService implements HealthRepository {
         final count = (sortedHR.length * 0.1).ceil().clamp(1, sortedHR.length);
         final lowestTenPercent = sortedHR.sublist(0, count);
         metric.restingHeartRate = lowestTenPercent.reduce((a, b) => a + b) / count;
-        debugPrint('[GoogleHealth] Estimated resting heart rate: ${metric.restingHeartRate}');
       }
 
       if (filteredHrvs.isNotEmpty) {
@@ -271,12 +312,18 @@ class GoogleHealthService implements HealthRepository {
       if (sleepMap['total']! > 0) metric.totalSleepMinutes = sleepMap['total'];
       if (sleepMap['awake']! > 0) metric.awakeMinutes = sleepMap['awake'];
 
-    } catch (e) {
-      debugPrint('[GoogleHealthService] Error fetching metrics: $e');
+      results.add(metric);
+      current = current.add(const Duration(days: 1));
     }
 
-    return metric;
+    debugPrint('┌─────────────────────────────────────────────────────────────');
+    debugPrint('│ [PIPELINE] fetchMetricsInRange COMPLETE');
+    debugPrint('│ Total DailyMetric records generated: ${results.length}');
+    debugPrint('└─────────────────────────────────────────────────────────────');
+
+    return results;
   }
+
 
   @override
   Future<List<WorkoutSession>> fetchWorkoutsForDay(DateTime day) async {
@@ -668,7 +715,153 @@ class GoogleHealthService implements HealthRepository {
 
     return words.join(' ');
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BULK WORKOUT FETCH — single Health Connect call for entire range
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @override
+  Future<List<WorkoutSession>> fetchWorkoutsInRange(DateTime start, DateTime end) async {
+    final queryStart = DateTime(start.year, start.month, start.day);
+    final queryEnd = DateTime(end.year, end.month, end.day, 23, 59, 59, 999);
+
+    debugPrint('┌─────────────────────────────────────────────────────────────');
+    debugPrint('│ [PIPELINE] fetchWorkoutsInRange START');
+    debugPrint('│ queryStart = $queryStart');
+    debugPrint('│ queryEnd   = $queryEnd');
+    debugPrint('│ span       = ${queryEnd.difference(queryStart).inDays} days');
+    debugPrint('└─────────────────────────────────────────────────────────────');
+
+    // 1. Log permission status
+    try {
+      final hasPerms = await hasPermissions();
+      debugPrint('[PIPELINE] Permission status: $hasPerms');
+    } catch (e) {
+      debugPrint('[PIPELINE] Permission check error: $e');
+    }
+
+    try {
+      final List<HealthDataPoint> rawData = [];
+
+      // Chunk workout queries into safe 30-day windows to prevent Health Connect IPC parcel overflow
+      const int chunkDays = 30;
+      DateTime chunkStart = queryStart;
+
+      while (!chunkStart.isAfter(queryEnd)) {
+        DateTime chunkEnd = chunkStart.add(const Duration(days: chunkDays));
+        if (chunkEnd.isAfter(queryEnd)) {
+          chunkEnd = queryEnd;
+        }
+
+        try {
+          final chunkData = await _health.getHealthDataFromTypes(
+            types: [HealthDataType.WORKOUT],
+            startTime: chunkStart,
+            endTime: chunkEnd,
+          );
+          rawData.addAll(chunkData);
+        } catch (e) {
+          debugPrint('[PIPELINE] Error chunk fetching workouts ($chunkStart → $chunkEnd): $e');
+        }
+
+        chunkStart = chunkEnd.add(const Duration(milliseconds: 1));
+      }
+
+      debugPrint('[PIPELINE] Raw WORKOUT data points returned: ${rawData.length}');
+
+
+      if (rawData.isEmpty) {
+        debugPrint('[PIPELINE] ⚠ Health Connect returned ZERO workout records for the entire range.');
+        debugPrint('[PIPELINE] Possible causes:');
+        debugPrint('[PIPELINE]   - No WORKOUT permission granted');
+        debugPrint('[PIPELINE]   - No READ_HEALTH_DATA_HISTORY permission');
+        debugPrint('[PIPELINE]   - Health Connect has no workout data');
+        debugPrint('[PIPELINE]   - The health plugin version does not support historical reads');
+        return [];
+      }
+
+      // Mapped and deduplicated next
+
+
+      // 4. Deduplicate by uuid + time range
+      final seen = <String>{};
+      final healthData = rawData.where((p) {
+        final dynamicUuid = (p.uuid as dynamic);
+        final uuidStr = (dynamicUuid == null || dynamicUuid.toString().isEmpty)
+            ? 'gen_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}'
+            : dynamicUuid.toString();
+        final key = '${uuidStr}_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}';
+        return seen.add(key);
+      }).toList();
+
+      debugPrint('[PIPELINE] After dedup: ${healthData.length} unique workout points (removed ${rawData.length - healthData.length} dupes)');
+
+      // 5. Map to WorkoutSession objects
+      final List<WorkoutSession> sessions = [];
+      for (int i = 0; i < healthData.length; i++) {
+        final point = healthData[i];
+        String workoutTypeName = 'Workout';
+        double? calories;
+        double? distance;
+
+        try {
+          if (point.value is WorkoutHealthValue) {
+            final val = point.value as WorkoutHealthValue;
+            workoutTypeName = _formatWorkoutType(val.workoutActivityType.name);
+            calories = val.totalEnergyBurned?.toDouble();
+            distance = val.totalDistance?.toDouble();
+          } else if (point.value is NumericHealthValue) {
+            calories = (point.value as NumericHealthValue).numericValue.toDouble();
+          }
+        } catch (e) {
+          debugPrint('[PIPELINE] Error parsing workout[$i] value: $e');
+        }
+
+        final pointLocal = point.dateFrom.toLocal();
+        final workoutDate = DateTime(pointLocal.year, pointLocal.month, pointLocal.day);
+
+        final dynamicUuid = (point.uuid as dynamic);
+        final safeUuid = (dynamicUuid == null || dynamicUuid.toString().isEmpty)
+            ? 'gen_${point.dateFrom.millisecondsSinceEpoch}_${point.dateTo.millisecondsSinceEpoch}'
+            : dynamicUuid.toString();
+
+        final durationSecs = point.dateTo.difference(point.dateFrom).inSeconds;
+
+        final workout = WorkoutSession(
+          date: workoutDate,
+        )
+          ..startTime = point.dateFrom
+          ..endTime = point.dateTo
+          ..workoutType = workoutTypeName
+          ..durationSeconds = durationSecs
+          ..totalCaloriesKcal = calories
+          ..activityId = safeUuid
+          ..distanceMeters = distance;
+
+        debugPrint('[PIPELINE] Mapped[$i]: activityId=$safeUuid, date=$workoutDate, '
+            'type=$workoutTypeName, duration=${durationSecs}s, '
+            'calories=$calories, start=${point.dateFrom}, end=${point.dateTo}');
+
+        sessions.add(workout);
+      }
+
+      // Deduplicate mapped sessions by activityId
+      final seenActivityIds = <String>{};
+      final uniqueSessions = sessions.where((s) => seenActivityIds.add(s.activityId ?? '')).toList();
+
+      debugPrint('┌─────────────────────────────────────────────────────────────');
+      debugPrint('│ [PIPELINE] fetchWorkoutsInRange COMPLETE');
+      debugPrint('│ Total sessions mapped: ${sessions.length} (unique: ${uniqueSessions.length})');
+      debugPrint('└─────────────────────────────────────────────────────────────');
+
+      return uniqueSessions;
+    } catch (e, stack) {
+      debugPrint('[PIPELINE] ❌ fetchWorkoutsInRange ERROR: $e\n$stack');
+      return [];
+    }
+  }
 }
+
 
 /// Lightweight helper class for time-interval deduplication.
 class _TimeInterval {

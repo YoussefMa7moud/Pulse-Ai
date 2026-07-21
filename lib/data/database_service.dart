@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
@@ -125,12 +126,22 @@ class DatabaseService {
 
   Future<void> upsertMetrics(List<DailyMetric> metrics) async {
     if (userId.isEmpty || metrics.isEmpty) return;
-    final list = metrics.map((m) {
-      final json = m.toJson();
-      json['user_id'] = userId;
-      return json;
-    }).toList();
-    await client.from('daily_metrics').upsert(list);
+    try {
+      final Map<String, Map<String, dynamic>> dedupedMap = {};
+      for (final m in metrics) {
+        final json = m.toJson();
+        json['user_id'] = userId;
+        final dateKey = json['date']?.toString() ?? '';
+        dedupedMap['${userId}_$dateKey'] = json;
+      }
+      final list = dedupedMap.values.toList();
+      await client.from('daily_metrics').upsert(
+        list,
+        onConflict: 'user_id,date',
+      );
+    } catch (e, stack) {
+      debugPrint('[PIPELINE][DB] Error upserting metrics: $e\n$stack');
+    }
   }
 
   Future<List<DailyMetric>> getMetricsRange(DateTime start, DateTime end) async {
@@ -166,23 +177,94 @@ class DatabaseService {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // WORKOUT SESSIONS
-  // ─────────────────────────────────────────────────────────────────────────
 
   Future<void> upsertWorkoutSessions(List<WorkoutSession> sessions) async {
     if (userId.isEmpty || sessions.isEmpty) return;
+    debugPrint('[PIPELINE][DB] upsertWorkoutSessions called with ${sessions.length} sessions for user=$userId');
+
+    // Deduplicate in memory by activity_id
+    final Map<String, Map<String, dynamic>> dedupedMap = {};
+    for (final s in sessions) {
+      final json = s.toJson();
+      json['user_id'] = userId;
+      final actId = json['activity_id']?.toString() ?? '';
+      if (actId.isEmpty) continue; // Skip entries with no activity_id
+      dedupedMap['${userId}_$actId'] = json;
+    }
+    final list = dedupedMap.values.toList();
+    if (list.isEmpty) return;
+
+    debugPrint('[PIPELINE][DB] In-memory deduplicated from ${sessions.length} to ${list.length} unique activity_ids');
+
+    // Strategy 1: Try bulk upsert with onConflict (fastest, requires UNIQUE constraint)
     try {
-      final list = sessions.map((s) {
-        final json = s.toJson();
-        json['user_id'] = userId;
-        return json;
-      }).toList();
-      await client.from('workout_sessions').upsert(list);
-    } catch (e, stack) {
-      print('[DatabaseService] Error upserting workouts: $e\n$stack');
+      await client.from('workout_sessions').upsert(
+        list,
+        onConflict: 'user_id,activity_id',
+      );
+      debugPrint('[PIPELINE][DB] ✅ Bulk upsert complete — ${list.length} sessions written');
+      return; // Success — done
+    } catch (e) {
+      debugPrint('[PIPELINE][DB] ⚠ Bulk upsert failed (likely missing UNIQUE constraint): $e');
+      debugPrint('[PIPELINE][DB] Falling back to individual row insert/update...');
+    }
+
+    // Strategy 2: Fall back to individual insert-or-update per row
+    int inserted = 0;
+    int updated = 0;
+    int errors = 0;
+    for (final row in list) {
+      try {
+        final activityId = row['activity_id'] as String;
+
+        // Check if row already exists
+        final existing = await client.from('workout_sessions')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('activity_id', activityId)
+            .maybeSingle();
+
+        if (existing != null) {
+          // Update existing row
+          final existingId = existing['id'];
+          final updateData = Map<String, dynamic>.from(row);
+          updateData.remove('id'); // Don't overwrite the primary key
+          await client.from('workout_sessions')
+              .update(updateData)
+              .eq('id', existingId);
+          updated++;
+        } else {
+          // Insert new row (remove 'id' so Supabase auto-generates uuid)
+          final insertData = Map<String, dynamic>.from(row);
+          insertData.remove('id');
+          await client.from('workout_sessions').insert(insertData);
+          inserted++;
+        }
+      } catch (e) {
+        errors++;
+        debugPrint('[PIPELINE][DB] ⚠ Error upserting single workout row: $e');
+      }
+    }
+    debugPrint('[PIPELINE][DB] ✅ Fallback complete — inserted=$inserted, updated=$updated, errors=$errors');
+
+    // Post-fallback verification: confirm data was actually persisted
+    if (inserted + updated > 0) {
+      try {
+        final verify = await client.from('workout_sessions')
+            .select('id')
+            .eq('user_id', userId);
+        debugPrint('[PIPELINE][DB] Post-fallback verification: ${(verify as List).length} total workout rows in DB for this user');
+      } catch (_) {}
+    }
+
+    if (errors == list.length) {
+      debugPrint('[PIPELINE][DB] ❌ ALL individual inserts failed! Check:');
+      debugPrint('[PIPELINE][DB]   1. Does the workout_sessions table exist in Supabase?');
+      debugPrint('[PIPELINE][DB]   2. Are RLS policies configured to allow INSERT for auth.uid()?');
+      debugPrint('[PIPELINE][DB]   3. Do the column names match? (activity_id, date, start_time, end_time, etc.)');
     }
   }
+
 
   Future<List<WorkoutSession>> getWorkoutsForDay(DateTime date) async {
     if (userId.isEmpty) return [];
@@ -192,9 +274,10 @@ class DatabaseService {
           .select()
           .eq('user_id', userId)
           .eq('date', dateStr);
-      return (res as List).map((e) => WorkoutSession.fromJson(e)).toList();
+      debugPrint('[PIPELINE][DB] getWorkoutsForDay($dateStr): ${(res as List).length} rows');
+      return (res).map((e) => WorkoutSession.fromJson(e)).toList();
     } catch (e, stack) {
-      print('[DatabaseService] Error getting workouts for day: $e\n$stack');
+      debugPrint('[PIPELINE][DB] Error getting workouts for day: $e\n$stack');
       return [];
     }
   }
@@ -208,13 +291,32 @@ class DatabaseService {
           .select()
           .eq('user_id', userId)
           .gt('date', cutoffStr)
-          .order('start_time', ascending: false);
-      return (res as List).map((e) => WorkoutSession.fromJson(e)).toList();
+          .order('date', ascending: false);
+      debugPrint('[PIPELINE][DB] getRecentWorkouts(days=$days, cutoff=$cutoffStr): ${(res as List).length} rows');
+      return (res).map((e) => WorkoutSession.fromJson(e)).toList();
     } catch (e, stack) {
-      print('[DatabaseService] Error getting recent workouts: $e\n$stack');
+      debugPrint('[PIPELINE][DB] Error getting recent workouts: $e\n$stack');
       return [];
     }
   }
+
+  /// Fetches ALL workout sessions for this user — no date filter.
+  /// Used by the Exercise tab to show the complete workout history.
+  Future<List<WorkoutSession>> getAllWorkouts() async {
+    if (userId.isEmpty) return [];
+    try {
+      final res = await client.from('workout_sessions')
+          .select()
+          .eq('user_id', userId)
+          .order('date', ascending: false);
+      debugPrint('[PIPELINE][DB] getAllWorkouts: ${(res as List).length} rows');
+      return (res).map((e) => WorkoutSession.fromJson(e)).toList();
+    } catch (e, stack) {
+      debugPrint('[PIPELINE][DB] Error getting all workouts: $e\n$stack');
+      return [];
+    }
+  }
+
 
   // ─────────────────────────────────────────────────────────────────────────
   // DAILY SCORES
@@ -245,13 +347,24 @@ class DatabaseService {
 
   Future<void> upsertScores(List<DailyScore> scores) async {
     if (userId.isEmpty || scores.isEmpty) return;
-    final list = scores.map((s) {
-      final json = s.toJson();
-      json['user_id'] = userId;
-      return json;
-    }).toList();
-    await client.from('daily_scores').upsert(list);
+    try {
+      final Map<String, Map<String, dynamic>> dedupedMap = {};
+      for (final s in scores) {
+        final json = s.toJson();
+        json['user_id'] = userId;
+        final dateKey = json['date']?.toString() ?? '';
+        dedupedMap['${userId}_$dateKey'] = json;
+      }
+      final list = dedupedMap.values.toList();
+      await client.from('daily_scores').upsert(
+        list,
+        onConflict: 'user_id,date',
+      );
+    } catch (e, stack) {
+      debugPrint('[PIPELINE][DB] Error upserting scores: $e\n$stack');
+    }
   }
+
 
   Future<List<DailyScore>> getRecentScores({int days = 30}) async {
     if (userId.isEmpty) return [];

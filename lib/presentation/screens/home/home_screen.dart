@@ -81,13 +81,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(icon, color: color, size: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(icon, color: color, size: 14),
+                      ),
+                      if (value != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: color.withOpacity(0.2), width: 0.5),
+                          ),
+                          child: Text(
+                            '/100',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: color,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,14 +126,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 1),
-                      Text(
-                        statusText,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: textColor.withOpacity(0.9),
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              statusText,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: textColor.withOpacity(0.9),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -121,18 +150,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             AnimatedProgressRing(
               value: value == null ? 0.0 : (value / 100.0),
               color: color,
-              size: 48,
+              size: 50,
               strokeWidth: 3.5,
               backgroundColor: color.withOpacity(0.08),
               child: value == null
                   ? Text('-', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: textColor))
-                  : AnimatedCounter(
-                      value: value,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        color: textColor,
-                      ),
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        AnimatedCounter(
+                          value: value,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: textColor,
+                            height: 1.0,
+                          ),
+                        ),
+                        Text(
+                          '/100',
+                          style: TextStyle(
+                            fontSize: 7,
+                            fontWeight: FontWeight.w700,
+                            color: PulseTheme.secondary,
+                            height: 1.1,
+                          ),
+                        ),
+                      ],
                     ),
             ),
           ],
@@ -140,6 +184,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
+
 
   Widget _buildIncompleteDataCard(BuildContext context, WidgetRef ref) {
     final textColor = PulseTheme.isDark ? Colors.white : Colors.black87;

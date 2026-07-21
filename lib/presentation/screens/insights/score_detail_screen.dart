@@ -9,6 +9,8 @@ import '../../../services/ai_service.dart';
 import '../../../widgets/pulse_loader.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
+import '../../../widgets/score_cards.dart';
+
 class ScoreDetailScreen extends ConsumerStatefulWidget {
   final String scoreType;
 
@@ -73,8 +75,39 @@ class _ScoreDetailScreenState extends ConsumerState<ScoreDetailScreen> {
     }
   }
 
+  double? _getScoreValue(dynamic score) {
+    if (score == null) return null;
+    final type = widget.scoreType.toLowerCase();
+    if (type == 'recovery') return score.recoveryScore;
+    if (type == 'strain') return score.strainScore;
+    if (type == 'sleep') return score.sleepScore;
+    if (type == 'readiness') return score.readinessScore;
+    if (type == 'energy') return score.energyScore;
+    if (type == 'stress') return score.stressBalanceScore;
+    return score.recoveryScore;
+  }
+
+  String _getStatusText(double value) {
+    final t = widget.scoreType.toLowerCase();
+    if (t.contains('recovery')) {
+      return value >= 67 ? 'Optimal Recovery' : (value >= 34 ? 'Resting Recovery' : 'Low Recovery');
+    } else if (t.contains('sleep')) {
+      return value >= 80 ? 'Optimal Sleep' : (value >= 50 ? 'Fair Sleep' : 'Poor Sleep');
+    } else if (t.contains('strain')) {
+      return value >= 70 ? 'High Strain' : (value >= 30 ? 'Moderate Strain' : 'Light Strain');
+    } else if (t.contains('readiness')) {
+      return value >= 70 ? 'Peak Readiness' : (value >= 40 ? 'Moderate Readiness' : 'Low Readiness');
+    } else if (t.contains('energy')) {
+      return value >= 70 ? 'Fully Charged' : (value >= 40 ? 'Moderate Energy' : 'Low Energy');
+    } else if (t.contains('stress')) {
+      return value >= 70 ? 'Calm Balance' : (value >= 40 ? 'Balanced Stress' : 'Elevated Stress');
+    }
+    return value >= 70 ? 'Optimal' : 'Needs Attention';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final scoresAsync = ref.watch(todayScoresProvider);
     String title = widget.scoreType.toUpperCase();
     Color primaryColor = PulseTheme.accent;
     
@@ -99,6 +132,25 @@ class _ScoreDetailScreenState extends ConsumerState<ScoreDetailScreen> {
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
+              // Hero score display with / 100 denominator
+              scoresAsync.when(
+                data: (scoreObj) {
+                  final val = _getScoreValue(scoreObj);
+                  if (val == null) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: HeroScoreCard(
+                      title: widget.scoreType,
+                      score: val,
+                      color: primaryColor,
+                      message: _getStatusText(val),
+                    ),
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+
               GlassContainer(
                 padding: const EdgeInsets.all(24),
                 child: Column(

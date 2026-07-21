@@ -106,14 +106,24 @@ class _PulseAppState extends ConsumerState<PulseApp>
     }
   }
 
-  /// On startup: run full 30-day sync if authorized.
+  /// On startup: run full historical sync if first time, otherwise 30 days.
   Future<void> _triggerSync() async {
-    final result = await widget.syncUseCase.syncAll(daysBack: 30);
+    // Check if this is the first sync by looking at the user profile
+    final dbService = ref.read(databaseProvider);
+    final profile = await dbService.getUserProfile();
+    final isFirstSync = profile.lastSyncDate == null;
+    final daysBack = isFirstSync ? 365 : 30;
+
+    debugPrint('[PIPELINE][MAIN] _triggerSync: isFirstSync=$isFirstSync, daysBack=$daysBack');
+    final result = await widget.syncUseCase.syncAll(daysBack: daysBack);
+    debugPrint('[PIPELINE][MAIN] _triggerSync complete: success=${result.success}, '
+        'days=${result.daysImported}, workouts=${result.workoutsImported}');
     if (!mounted) return;
     if (result.success) {
       invalidateAllDataProviders(ref);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
