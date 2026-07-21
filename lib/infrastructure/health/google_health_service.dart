@@ -21,6 +21,7 @@ class GoogleHealthService implements HealthRepository {
     HealthDataType.SLEEP_LIGHT,
     HealthDataType.SLEEP_DEEP,
     HealthDataType.SLEEP_REM,
+    HealthDataType.SLEEP_AWAKE,
     HealthDataType.BLOOD_OXYGEN,
     HealthDataType.BLOOD_PRESSURE_SYSTOLIC,
     HealthDataType.BLOOD_PRESSURE_DIASTOLIC,
@@ -162,7 +163,8 @@ class GoogleHealthService implements HealthRepository {
               type == HealthDataType.SLEEP_ASLEEP ||
               type == HealthDataType.SLEEP_LIGHT ||
               type == HealthDataType.SLEEP_DEEP ||
-              type == HealthDataType.SLEEP_REM) {
+              type == HealthDataType.SLEEP_REM ||
+              type == HealthDataType.SLEEP_AWAKE) {
             // Sleep sessions ending on day D belong to day D
             final pEndLocalStr = DateFormat('yyyy-MM-dd').format(p.dateTo.toLocal());
             if (pEndLocalStr == dayStr && p.dateTo.isAfter(localStart)) {
@@ -225,11 +227,17 @@ class GoogleHealthService implements HealthRepository {
         }
       }
 
-      // Aggregate cumulative metrics with time-interval deduplication across ALL sources
-      final double activeCalories = _aggregateCumulative(activeEnergyPoints);
-      final double basalCalories = _aggregateCumulative(basalEnergyPoints);
-      final int steps = _aggregateCumulative(stepPoints).toInt();
-      final double distance = _aggregateCumulative(distancePoints);
+      // Filter cumulative metrics by best source to prevent double-counting phone + wearable
+      final filteredActiveEnergy = _filterByBestSource(activeEnergyPoints);
+      final filteredBasalEnergy = _filterByBestSource(basalEnergyPoints);
+      final filteredSteps = _filterByBestSource(stepPoints);
+      final filteredDistance = _filterByBestSource(distancePoints);
+
+      // Aggregate cumulative metrics with time-interval deduplication within the best source
+      final double activeCalories = _aggregateCumulative(filteredActiveEnergy);
+      final double basalCalories = _aggregateCumulative(filteredBasalEnergy);
+      final int steps = _aggregateCumulative(filteredSteps).toInt();
+      final double distance = _aggregateCumulative(filteredDistance);
       final int exerciseDurationMinutes = _aggregateExerciseDuration(workoutPoints);
 
       final sleepMap = _aggregateSleep(sleepPoints);
@@ -311,6 +319,7 @@ class GoogleHealthService implements HealthRepository {
       if (sleepMap['light']! > 0) metric.lightSleepMinutes = sleepMap['light'];
       if (sleepMap['total']! > 0) metric.totalSleepMinutes = sleepMap['total'];
       if (sleepMap['awake']! > 0) metric.awakeMinutes = sleepMap['awake'];
+      if (sleepMap['nap']! > 0) metric.floorsClimbed = sleepMap['nap'];
 
       results.add(metric);
       current = current.add(const Duration(days: 1));
@@ -563,6 +572,7 @@ class GoogleHealthService implements HealthRepository {
       'light': 0,
       'asleep': 0,
       'awake': 0,
+      'nap': 0,
     };
     if (sleepPoints.isEmpty) return result;
 
@@ -577,7 +587,24 @@ class GoogleHealthService implements HealthRepository {
 
     final points = sourcePoints[bestSource] ?? [];
     
-    int totalSession = 0;
+    // Find the main sleep session (the longest sleep session)
+    final sleepSessions = points.where((p) => p.type == HealthDataType.SLEEP_SESSION).toList();
+    HealthDataPoint? mainSessionPoint;
+    int napMinutes = 0;
+    if (sleepSessions.isNotEmpty) {
+      sleepSessions.sort((a, b) {
+        final aDur = a.dateTo.difference(a.dateFrom).inMinutes;
+        final bDur = b.dateTo.difference(b.dateFrom).inMinutes;
+        return bDur.compareTo(aDur);
+      });
+      mainSessionPoint = sleepSessions.first;
+      
+      // Any other sessions are naps
+      for (int i = 1; i < sleepSessions.length; i++) {
+        napMinutes += sleepSessions[i].dateTo.difference(sleepSessions[i].dateFrom).inMinutes;
+      }
+    }
+
     int deep = 0;
     int rem = 0;
     int light = 0;
@@ -586,10 +613,24 @@ class GoogleHealthService implements HealthRepository {
 
     for (var point in points) {
       final duration = point.dateTo.difference(point.dateFrom).inMinutes;
+      if (point.type == HealthDataType.SLEEP_SESSION) {
+        continue;
+      }
+      
+      // Filter sleep stages to main session only
+      if (mainSessionPoint != null) {
+        final startMs = point.dateFrom.millisecondsSinceEpoch;
+        final endMs = point.dateTo.millisecondsSinceEpoch;
+        final mainStartMs = mainSessionPoint.dateFrom.millisecondsSinceEpoch;
+        final mainEndMs = mainSessionPoint.dateTo.millisecondsSinceEpoch;
+        
+        final overlap = (startMs < mainEndMs) && (endMs > mainStartMs);
+        if (!overlap) {
+          continue; // belongs to nap or other times
+        }
+      }
+
       switch (point.type) {
-        case HealthDataType.SLEEP_SESSION:
-          totalSession += duration;
-          break;
         case HealthDataType.SLEEP_ASLEEP:
           asleep += duration;
           break;
@@ -602,6 +643,9 @@ class GoogleHealthService implements HealthRepository {
         case HealthDataType.SLEEP_REM:
           rem += duration;
           break;
+        case HealthDataType.SLEEP_AWAKE:
+          awake += duration;
+          break;
         default:
           break;
       }
@@ -611,16 +655,19 @@ class GoogleHealthService implements HealthRepository {
     result['rem'] = rem;
     result['light'] = light;
     result['asleep'] = asleep;
+    result['nap'] = napMinutes;
     
-    if (totalSession > 0) {
-      result['total'] = totalSession;
+    if (mainSessionPoint != null) {
+      result['total'] = mainSessionPoint.dateTo.difference(mainSessionPoint.dateFrom).inMinutes;
     } else {
       final sumStages = deep + rem + light + asleep;
       result['total'] = sumStages;
     }
 
+    // Only infer awake time if stages cover most of the sleep session (e.g. >= 80%),
+    // otherwise the unrecorded stages are likely just unclassified sleep segments, not awake time!
     final stagesSum = deep + rem + light;
-    if (stagesSum > 0 && result['total']! > stagesSum) {
+    if (stagesSum > 0 && result['total']! > stagesSum && (stagesSum / result['total']!) >= 0.8) {
       result['awake'] = result['total']! - stagesSum;
     } else {
       result['awake'] = awake;

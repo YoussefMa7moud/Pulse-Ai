@@ -15,130 +15,93 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="horizontal"
-        android:baselineAligned="false"
+        android:gravity="center_vertical"
         android:padding="16dp">
 
-        <!-- Column 1 -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical">
+        <!-- Left Side: Concentric Rings (Whoop-Style) -->
+        <FrameLayout
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_gravity="center_vertical">
 
-            <!-- Recovery -->
-            <RelativeLayout
+            <!-- Strain Progress Ring (Outer: 50dp radius) -->
+            <ProgressBar
+                android:id="@+id/strain_progress"
+                style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1">
-                
+                android:layout_height="match_parent"
+                android:indeterminate="false"
+                android:max="210"
+                android:progress="0"
+                android:progressDrawable="@drawable/widget_concentric_strain" />
+
+            <!-- Recovery Progress Ring (Middle: 40dp radius) -->
+            <ProgressBar
+                android:id="@+id/recovery_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:indeterminate="false"
+                android:max="100"
+                android:progress="0"
+                android:progressDrawable="@drawable/widget_concentric_recovery" />
+
+            <!-- Sleep Progress Ring (Inner: 30dp radius) -->
+            <ProgressBar
+                android:id="@+id/sleep_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:indeterminate="false"
+                android:max="100"
+                android:progress="0"
+                android:progressDrawable="@drawable/widget_concentric_sleep" />
+
+            <!-- Concentric Center Score Display -->
+            <LinearLayout
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:orientation="vertical">
+
                 <TextView
                     android:id="@+id/label_rec"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="RECOVERY"
                     android:textColor="#22D3EE"
-                    android:textSize="10sp"
+                    android:textSize="8sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.05" />
-                
+
                 <TextView
                     android:id="@+id/overview_recovery"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_centerVertical="true"
                     android:text="--"
                     android:textColor="#FFFFFF"
-                    android:textSize="28sp"
+                    android:textSize="18sp"
                     android:textStyle="bold"
                     android:includeFontPadding="false" />
-                    
-                <ProgressBar
-                    android:id="@+id/recovery_progress"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="4dp"
-                    android:layout_alignParentBottom="true"
-                    android:layout_marginBottom="8dp"
-                    android:layout_marginEnd="8dp"
-                    android:indeterminate="false"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressDrawable="@drawable/widget_circular_progress_green" />
-            </RelativeLayout>
+            </LinearLayout>
 
-            <!-- Horizontal Divider -->
-            <ImageView
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginEnd="8dp"
-                android:background="#26FFFFFF" />
+        </FrameLayout>
 
-            <!-- Sleep -->
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:layout_marginTop="8dp">
-                
-                <TextView
-                    android:id="@+id/label_sleep"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="SLEEP"
-                    android:textColor="#818CF8"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.05" />
-                
-                <TextView
-                    android:id="@+id/overview_sleep"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_centerVertical="true"
-                    android:text="--"
-                    android:textColor="#FFFFFF"
-                    android:textSize="28sp"
-                    android:textStyle="bold"
-                    android:includeFontPadding="false" />
-                    
-                <ProgressBar
-                    android:id="@+id/sleep_progress"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="4dp"
-                    android:layout_alignParentBottom="true"
-                    android:layout_marginBottom="8dp"
-                    android:layout_marginEnd="8dp"
-                    android:indeterminate="false"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressDrawable="@drawable/widget_circular_progress_purple" />
-            </RelativeLayout>
-
-        </LinearLayout>
-
-        <!-- Vertical Divider -->
-        <ImageView
-            android:layout_width="1dp"
-            android:layout_height="match_parent"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp"
-            android:background="#26FFFFFF" />
-
-        <!-- Column 2 -->
+        <!-- Right Side: Details Columns -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_weight="1"
             android:orientation="vertical"
-            android:layout_marginStart="8dp">
+            android:gravity="center_vertical"
+            android:layout_marginStart="16dp">
 
-            <!-- Strain -->
+            <!-- Strain Row -->
             <RelativeLayout
                 android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1">
-                
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp">
+
                 <TextView
                     android:id="@+id/label_strain"
                     android:layout_width="wrap_content"
@@ -147,81 +110,110 @@
                     android:textColor="#F97316"
                     android:textSize="10sp"
                     android:textStyle="bold"
+                    android:layout_alignParentStart="true"
                     android:letterSpacing="0.05" />
-                
-                <TextView
-                    android:id="@+id/overview_strain"
+
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_centerVertical="true"
-                    android:text="--"
-                    android:textColor="#FFFFFF"
-                    android:textSize="28sp"
-                    android:textStyle="bold"
-                    android:includeFontPadding="false" />
-                    
-                <ProgressBar
-                    android:id="@+id/strain_progress"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="4dp"
-                    android:layout_alignParentBottom="true"
-                    android:layout_marginBottom="8dp"
-                    android:layout_marginEnd="8dp"
-                    android:indeterminate="false"
-                    android:max="210"
-                    android:progress="0"
-                    android:progressDrawable="@drawable/widget_circular_progress_blue" />
+                    android:orientation="horizontal"
+                    android:layout_alignParentEnd="true">
+
+                    <TextView
+                        android:id="@+id/overview_strain"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=" / 21"
+                        android:textColor="#4B5563"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
             </RelativeLayout>
 
-            <!-- Horizontal Divider -->
+            <!-- Sleep Row -->
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:id="@+id/label_sleep"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SLEEP PERFORMANCE"
+                    android:textColor="#818CF8"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:layout_alignParentStart="true"
+                    android:letterSpacing="0.05" />
+
+                <TextView
+                    android:id="@+id/overview_sleep"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="--"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:layout_alignParentEnd="true" />
+
+            </RelativeLayout>
+
+            <!-- Divider -->
             <ImageView
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:layout_marginEnd="8dp"
-                android:background="#26FFFFFF" />
+                android:background="#1AFFFFFF"
+                android:layout_marginBottom="8dp" />
 
-            <!-- Stress -->
+            <!-- Stress Row (with horizontal bar) -->
             <RelativeLayout
                 android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:layout_marginTop="8dp">
-                
+                android:layout_height="wrap_content">
+
                 <TextView
                     android:id="@+id/label_stress"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="STRESS"
+                    android:text="DAY STRESS"
                     android:textColor="#F43F5E"
                     android:textSize="10sp"
                     android:textStyle="bold"
+                    android:layout_alignParentStart="true"
                     android:letterSpacing="0.05" />
-                
+
                 <TextView
                     android:id="@+id/overview_stress"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_centerVertical="true"
                     android:text="--"
                     android:textColor="#FFFFFF"
-                    android:textSize="28sp"
+                    android:textSize="13sp"
                     android:textStyle="bold"
-                    android:includeFontPadding="false" />
-                    
-                <ProgressBar
-                    android:id="@+id/stress_progress"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="4dp"
-                    android:layout_alignParentBottom="true"
-                    android:layout_marginBottom="8dp"
-                    android:layout_marginEnd="8dp"
-                    android:indeterminate="false"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressDrawable="@drawable/widget_circular_progress_red" />
+                    android:layout_alignParentEnd="true" />
+
             </RelativeLayout>
+
+            <!-- Horizontal Stress Progress Bar -->
+            <ProgressBar
+                android:id="@+id/stress_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:layout_marginTop="4dp"
+                android:indeterminate="false"
+                android:max="100"
+                android:progress="0"
+                android:progressDrawable="@drawable/widget_bar_red" />
 
         </LinearLayout>
 

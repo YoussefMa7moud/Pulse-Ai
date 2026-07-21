@@ -24,6 +24,104 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  Map<String, String> _estimateSleepTimes(int? totalSleepMinutes) {
+    if (totalSleepMinutes == null || totalSleepMinutes == 0) {
+      return {'bedtime': '--', 'waketime': '--'};
+    }
+    // Assume a default wake time of 7:30 AM for display
+    final wakeTime = DateTime(2026, 1, 1, 7, 30);
+    final bedTime = wakeTime.subtract(Duration(minutes: totalSleepMinutes));
+    
+    final timeFormat = DateFormat('h:mm a');
+    return {
+      'bedtime': timeFormat.format(bedTime),
+      'waketime': timeFormat.format(wakeTime),
+    };
+  }
+
+  Widget _buildBedtimeIndicator(int? totalSleepMinutes) {
+    final times = _estimateSleepTimes(totalSleepMinutes);
+    final isDark = PulseTheme.isDark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
+    return StyledCard(
+      color: PulseTheme.sleepPrimary,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: PulseTheme.sleepPrimary.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.bedtime_rounded, color: PulseTheme.sleepPrimary, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'BEDTIME',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: PulseTheme.secondary, letterSpacing: 1.0),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    times['bedtime']!,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          // Connective sleeping bar indicator
+          Expanded(
+            child: Container(
+              height: 4,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [PulseTheme.sleepPrimary.withOpacity(0.2), PulseTheme.sleepPrimary],
+                ),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'WOKE UP',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: PulseTheme.secondary, letterSpacing: 1.0),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    times['waketime']!,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 16),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.wb_sunny_rounded, color: Colors.amber, size: 24),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   String _getGreeting() {
     final hour = DateTime.now().hour;
     if (hour >= 5 && hour < 12) return 'Good Morning';
@@ -69,117 +167,136 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     }
 
+    IconData bgIcon = icon;
+    final t = title.toLowerCase();
+    if (t.contains('recovery')) {
+      bgIcon = Icons.favorite_rounded;
+    } else if (t.contains('sleep')) {
+      bgIcon = Icons.bedtime_rounded;
+    } else if (t.contains('strain')) {
+      bgIcon = Icons.offline_bolt_rounded;
+    } else if (t.contains('readiness')) {
+      bgIcon = Icons.speed_rounded;
+    } else if (t.contains('energy')) {
+      bgIcon = Icons.battery_charging_full_rounded;
+    } else if (t.contains('stress')) {
+      bgIcon = Icons.spa_rounded;
+    }
+
     return GestureDetector(
       onTap: () => context.push(route),
       child: StyledCard(
         color: color,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.12),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(icon, color: color, size: 14),
-                      ),
-                      if (value != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: color.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: color.withOpacity(0.2), width: 0.5),
-                          ),
-                          child: Text(
-                            '/100',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: color,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                          color: PulseTheme.secondary,
-                          letterSpacing: 1.0,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 1),
-                      Row(
+        padding: EdgeInsets.zero,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Stack(
+            children: [
+              // Subtle background watermark icon
+              Positioned(
+                bottom: -20,
+                left: -10,
+                child: Icon(
+                  bgIcon,
+                  size: 90,
+                  color: color.withOpacity(0.06),
+                ),
+              ),
+              // Main content
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            child: Text(
-                              statusText,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: textColor.withOpacity(0.9),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: color.withOpacity(0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(icon, color: color, size: 14),
                               ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            ],
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title.toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  color: PulseTheme.secondary,
+                                  letterSpacing: 1.0,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 1),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      statusText,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: textColor.withOpacity(0.9),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 6),
-            AnimatedProgressRing(
-              value: value == null ? 0.0 : (value / 100.0),
-              color: color,
-              size: 50,
-              strokeWidth: 3.5,
-              backgroundColor: color.withOpacity(0.08),
-              child: value == null
-                  ? Text('-', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: textColor))
-                  : Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        AnimatedCounter(
-                          value: value,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            color: textColor,
-                            height: 1.0,
-                          ),
-                        ),
-                        Text(
-                          '/100',
-                          style: TextStyle(
-                            fontSize: 7,
-                            fontWeight: FontWeight.w700,
-                            color: PulseTheme.secondary,
-                            height: 1.1,
-                          ),
-                        ),
-                      ],
                     ),
-            ),
-          ],
+                    const SizedBox(width: 6),
+                    AnimatedProgressRing(
+                      value: value == null ? 0.0 : (value / 100.0),
+                      color: color,
+                      size: 50,
+                      strokeWidth: 3.5,
+                      backgroundColor: color.withOpacity(0.08),
+                      child: value == null
+                          ? Text('-', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: textColor))
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                AnimatedCounter(
+                                  value: value,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                    color: textColor,
+                                    height: 1.0,
+                                  ),
+                                ),
+                                Text(
+                                  '/100',
+                                  style: TextStyle(
+                                    fontSize: 7,
+                                    fontWeight: FontWeight.w700,
+                                    color: PulseTheme.secondary,
+                                    height: 1.1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -445,12 +562,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   );
                                 }).toList(),
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 24),
+                              metricsAsync.when(
+                                data: (metrics) => _buildBedtimeIndicator(metrics.totalSleepMinutes),
+                                loading: () => const SizedBox(),
+                                error: (_, __) => const SizedBox(),
+                              ),
+                              const SizedBox(height: 24),
                               if (!isComplete) ...[
                                 _buildIncompleteDataCard(context, ref),
                               ] else ...[
                                 _PremiumDailyBrief(score: score!),
                               ],
+                              const SizedBox(height: 32),
+                              Text(
+                                'METRICS TRENDS',
+                                style: TextStyle(
+                                  letterSpacing: 2,
+                                  color: PulseTheme.secondary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              historyScoresAsync.when(
+                                data: (history) => _TrendChart(scoresHistory: history),
+                                loading: () => const SizedBox(
+                                  height: 220,
+                                  child: PulseLoadingIndicator(size: 60, message: 'Plotting trends...'),
+                                ),
+                                error: (_, __) => const SizedBox(),
+                              ),
                             ],
                           );
                         },
@@ -541,110 +683,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           );
                         },
                       ),
-
-                      const SizedBox(height: 32),
-
-                      // Metrics Dashboard
-                      Text(
-                        'KEY METRICS',
-                        style: TextStyle(
-                          letterSpacing: 2,
-                          color: PulseTheme.secondary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      metricsAsync.when(
-                        data: (metrics) => Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _MetricSquare(
-                                    icon: Icons.favorite_rounded,
-                                    title: 'RHR',
-                                    value: '${(metrics.restingHeartRate ?? 0).toInt()}',
-                                    unit: 'bpm',
-                                    color: PulseTheme.recoveryLow,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _MetricSquare(
-                                    icon: Icons.local_fire_department_rounded,
-                                    title: 'Burned',
-                                    value: '${(metrics.activeCalories ?? 0).toInt()}',
-                                    unit: 'kcal',
-                                    color: PulseTheme.strainPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _MetricSquare(
-                                    icon: Icons.directions_walk_rounded,
-                                    title: 'Steps',
-                                    value: '${metrics.steps ?? 0}',
-                                    unit: 'steps',
-                                    color: PulseTheme.accent,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _MetricSquare(
-                                    icon: Icons.timer_rounded,
-                                    title: 'Active',
-                                    value: '${metrics.activeMinutes ?? 0}',
-                                    unit: 'min',
-                                    color: Colors.greenAccent,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            _PremiumMetricRow(
-                              icon: Icons.bedtime_rounded,
-                              title: 'Sleep Performance',
-                              value: '${((metrics.totalSleepMinutes ?? 0) / 60).toStringAsFixed(1)} h',
-                              subtitle: '${(metrics.deepSleepMinutes ?? 0)}m Deep • ${(metrics.remSleepMinutes ?? 0)}m REM',
-                              color: PulseTheme.sleepPrimary,
-                            ),
-                          ],
-                        ),
-                        loading: () => const SizedBox(
-                          height: 180,
-                          child: PulseLoadingIndicator(size: 50, message: 'Loading metrics...'),
-                        ),
-                        error: (_, __) => const Text('Error loading metrics'),
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // Historical Trend Chart
-                      Text(
-                        'RECOVERY TREND',
-                        style: TextStyle(
-                          letterSpacing: 2,
-                          color: PulseTheme.secondary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      historyScoresAsync.when(
-                        data: (history) => _TrendChart(scoresHistory: history),
-                        loading: () => const SizedBox(
-                          height: 200,
-                          child: PulseLoadingIndicator(size: 60, message: 'Plotting trend...'),
-                        ),
-                        error: (_, __) => const SizedBox(),
-                      ),
-
                       const SizedBox(height: 96),
                     ]),
                   ),
@@ -832,58 +870,197 @@ class _PremiumDailyBriefState extends ConsumerState<_PremiumDailyBrief> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final textColor = PulseTheme.isDark ? Colors.white.withOpacity(0.9) : Colors.black87;
-
+  Widget _buildBriefSection({
+    required String title,
+    required String content,
+    required Color color,
+    required IconData icon,
+    required Color textColor,
+  }) {
     return StyledCard(
-      color: PulseTheme.accent,
-      padding: const EdgeInsets.all(24),
-      child: Column(
+      color: color,
+      padding: const EdgeInsets.all(16),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.auto_awesome, color: PulseTheme.accent, size: 20),
-              const SizedBox(width: 10),
-              Text(
-                'ADVICE FOR THE DAY',
-                style: TextStyle(
-                  fontSize: 13,
-                  letterSpacing: 2,
-                  color: PulseTheme.accent,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (loading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(20),
-                child: CircularProgressIndicator(strokeWidth: 3, color: Colors.cyan),
-              ),
-            )
-          else
-            Text(
-              brief ?? '',
-              style: TextStyle(height: 1.6, fontSize: 15, color: textColor),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              shape: BoxShape.circle,
             ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: color,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  content,
+                  style: TextStyle(fontSize: 13, height: 1.5, color: textColor),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = PulseTheme.isDark;
+    final textColor = isDark ? Colors.white.withOpacity(0.9) : Colors.black87;
+
+    final text = brief ?? '';
+    String focusText = '';
+    String avoidText = '';
+    String tipText = '';
+
+    if (text.isNotEmpty) {
+      final RegExp focusReg = RegExp(r'FOCUS:\s*(.*?)(?=AVOID:|TIP:|$)', caseSensitive: false, dotAll: true);
+      final RegExp avoidReg = RegExp(r'AVOID:\s*(.*?)(?=FOCUS:|TIP:|$)', caseSensitive: false, dotAll: true);
+      final RegExp tipReg = RegExp(r'TIP:\s*(.*?)(?=FOCUS:|AVOID:|$)', caseSensitive: false, dotAll: true);
+
+      focusText = focusReg.firstMatch(text)?.group(1)?.trim() ?? '';
+      avoidText = avoidReg.firstMatch(text)?.group(1)?.trim() ?? '';
+      tipText = tipReg.firstMatch(text)?.group(1)?.trim() ?? '';
+    }
+
+    if (focusText.isEmpty && avoidText.isEmpty && tipText.isEmpty) {
+      focusText = text; // Fallback
+    }
+
+    if (loading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(strokeWidth: 3, color: Colors.cyan),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'DAILY BRIEF',
+          style: TextStyle(
+            fontSize: 13,
+            letterSpacing: 2,
+            color: PulseTheme.secondary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (focusText.isNotEmpty)
+          _buildBriefSection(
+            title: 'TODAY\'S FOCUS',
+            content: focusText,
+            color: PulseTheme.recoveryHigh,
+            icon: Icons.directions_run_rounded,
+            textColor: textColor,
+          ),
+        if (avoidText.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _buildBriefSection(
+            title: 'WHAT TO AVOID',
+            content: avoidText,
+            color: PulseTheme.recoveryLow,
+            icon: Icons.warning_amber_rounded,
+            textColor: textColor,
+          ),
+        ],
+        if (tipText.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _buildBriefSection(
+            title: 'NIGHT TIME TIP',
+            content: tipText,
+            color: PulseTheme.sleepPrimary,
+            icon: Icons.bedtime_rounded,
+            textColor: textColor,
+          ),
+        ],
+      ],
+    );
+  }
 }
 
-class _TrendChart extends StatelessWidget {
+class _TrendChart extends StatefulWidget {
   final List<dynamic> scoresHistory;
 
   const _TrendChart({required this.scoresHistory});
 
   @override
+  State<_TrendChart> createState() => _TrendChartState();
+}
+
+class _TrendChartState extends State<_TrendChart> {
+  bool _showRecovery = true;
+  bool _showSleep = true;
+  bool _showStrain = true;
+  bool _showReadiness = false;
+  bool _showEnergy = false;
+  bool _showStress = false;
+
+  Widget _buildToggleChip(String label, bool isSelected, Color color, VoidCallback onTap) {
+    final activeBgColor = color.withOpacity(0.12);
+    final activeBorderColor = color.withOpacity(0.4);
+    final isDark = PulseTheme.isDark;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? activeBgColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? activeBorderColor : (isDark ? Colors.white10 : Colors.black12),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: isSelected ? color : Colors.grey.shade400,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? (isDark ? Colors.white : Colors.black87) : Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (scoresHistory.isEmpty) {
+    if (widget.scoresHistory.isEmpty) {
       return Container(
         height: 200,
         decoration: BoxDecoration(color: PulseTheme.surface, borderRadius: BorderRadius.circular(24)),
@@ -891,54 +1068,163 @@ class _TrendChart extends StatelessWidget {
       );
     }
 
-    // Sort by date ascending to plot left-to-right
-    final sorted = [...scoresHistory]..sort((a, b) => a.date.compareTo(b.date));
-
-    // Take up to 7 most recent
+    final sorted = [...widget.scoresHistory]..sort((a, b) => a.date.compareTo(b.date));
     final recent = sorted.length > 7 ? sorted.sublist(sorted.length - 7) : sorted;
 
-    List<FlSpot> spots = [];
-    for (int i = 0; i < recent.length; i++) {
-      spots.add(FlSpot(i.toDouble(), recent[i].recoveryScore ?? 0.0));
+    final List<LineChartBarData> lineBarsData = [];
+
+    List<FlSpot> getSpots(double? Function(dynamic) getter) {
+      List<FlSpot> spots = [];
+      for (int i = 0; i < recent.length; i++) {
+        final val = getter(recent[i]);
+        spots.add(FlSpot(i.toDouble(), val ?? 0.0));
+      }
+      return spots;
+    }
+
+    if (_showRecovery) {
+      lineBarsData.add(LineChartBarData(
+        spots: getSpots((s) => s.recoveryScore?.toDouble()),
+        isCurved: true,
+        color: PulseTheme.recoveryHigh,
+        barWidth: 3.5,
+        dotData: FlDotData(show: false),
+        belowBarData: BarAreaData(show: false),
+      ));
+    }
+    if (_showSleep) {
+      lineBarsData.add(LineChartBarData(
+        spots: getSpots((s) => s.sleepScore?.toDouble()),
+        isCurved: true,
+        color: PulseTheme.sleepPrimary,
+        barWidth: 3.5,
+        dotData: FlDotData(show: false),
+        belowBarData: BarAreaData(show: false),
+      ));
+    }
+    if (_showStrain) {
+      lineBarsData.add(LineChartBarData(
+        spots: getSpots((s) => s.strainScore?.toDouble()),
+        isCurved: true,
+        color: PulseTheme.strainPrimary,
+        barWidth: 3.5,
+        dotData: FlDotData(show: false),
+        belowBarData: BarAreaData(show: false),
+      ));
+    }
+    if (_showReadiness) {
+      lineBarsData.add(LineChartBarData(
+        spots: getSpots((s) => s.readinessScore?.toDouble()),
+        isCurved: true,
+        color: PulseTheme.accent,
+        barWidth: 3.5,
+        dotData: FlDotData(show: false),
+        belowBarData: BarAreaData(show: false),
+      ));
+    }
+    if (_showEnergy) {
+      lineBarsData.add(LineChartBarData(
+        spots: getSpots((s) => s.energyScore?.toDouble()),
+        isCurved: true,
+        color: Colors.orangeAccent,
+        barWidth: 3.5,
+        dotData: FlDotData(show: false),
+        belowBarData: BarAreaData(show: false),
+      ));
+    }
+    if (_showStress) {
+      lineBarsData.add(LineChartBarData(
+        spots: getSpots((s) => s.stressBalanceScore?.toDouble()),
+        isCurved: true,
+        color: Colors.tealAccent,
+        barWidth: 3.5,
+        dotData: FlDotData(show: false),
+        belowBarData: BarAreaData(show: false),
+      ));
     }
 
     return StyledCard(
-      color: PulseTheme.recoveryHigh,
-      padding: const EdgeInsets.only(right: 24, left: 16, top: 24, bottom: 16),
-      child: SizedBox(
-        height: 220,
-        child: LineChart(
-          LineChartData(
-            gridData: FlGridData(show: false),
-            titlesData: FlTitlesData(
-              show: true,
-              topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
+      color: PulseTheme.accent,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildToggleChip('Recovery', _showRecovery, PulseTheme.recoveryHigh, () => setState(() => _showRecovery = !_showRecovery)),
+              _buildToggleChip('Sleep', _showSleep, PulseTheme.sleepPrimary, () => setState(() => _showSleep = !_showSleep)),
+              _buildToggleChip('Strain', _showStrain, PulseTheme.strainPrimary, () => setState(() => _showStrain = !_showStrain)),
+              _buildToggleChip('Readiness', _showReadiness, PulseTheme.accent, () => setState(() => _showReadiness = !_showReadiness)),
+              _buildToggleChip('Energy', _showEnergy, Colors.orangeAccent, () => setState(() => _showEnergy = !_showEnergy)),
+              _buildToggleChip('Stress', _showStress, Colors.tealAccent, () => setState(() => _showStress = !_showStress)),
+            ],
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 220,
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: PulseTheme.isDark ? Colors.white10 : Colors.black12,
+                    strokeWidth: 1,
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      getTitlesWidget: (value, meta) => Text(
+                        '${value.toInt()}',
+                        style: const TextStyle(color: Colors.grey, fontSize: 10),
+                      ),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        final idx = value.toInt();
+                        if (idx >= 0 && idx < recent.length) {
+                          final date = recent[idx].date;
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              '${date.month}/${date.day}',
+                              style: const TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                          );
+                        }
+                        return const SizedBox();
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: lineBarsData.isEmpty
+                    ? [
+                        LineChartBarData(
+                          spots: [const FlSpot(0, 0)],
+                          color: Colors.transparent,
+                        )
+                      ]
+                    : lineBarsData,
+                minX: 0,
+                maxX: (recent.length > 1 ? recent.length - 1 : 1).toDouble(),
+                minY: 0,
+                maxY: 100,
               ),
             ),
-            borderData: FlBorderData(show: false),
-            lineBarsData: [
-              LineChartBarData(
-                spots: spots.isEmpty ? [const FlSpot(0, 0)] : spots,
-                isCurved: true,
-                color: PulseTheme.recoveryHigh,
-                barWidth: 4,
-                isStrokeCapRound: true,
-                dotData: FlDotData(show: false),
-                belowBarData: BarAreaData(
-                  show: true,
-                  color: PulseTheme.recoveryHigh.withOpacity(0.1),
-                ),
-              ),
-            ],
-            minX: 0,
-            maxX: (recent.length > 1 ? recent.length - 1 : 1).toDouble(),
-            minY: 0,
-            maxY: 100,
           ),
-        ),
+        ],
       ),
     );
   }

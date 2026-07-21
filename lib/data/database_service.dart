@@ -126,21 +126,75 @@ class DatabaseService {
 
   Future<void> upsertMetrics(List<DailyMetric> metrics) async {
     if (userId.isEmpty || metrics.isEmpty) return;
+    final Map<String, Map<String, dynamic>> dedupedMap = {};
+    for (final m in metrics) {
+      final json = m.toJson();
+      json['user_id'] = userId;
+      final dateKey = json['date']?.toString() ?? '';
+      dedupedMap['${userId}_$dateKey'] = json;
+    }
+    final list = dedupedMap.values.toList();
+
+    // Strategy 1: Bulk upsert with onConflict
     try {
-      final Map<String, Map<String, dynamic>> dedupedMap = {};
-      for (final m in metrics) {
-        final json = m.toJson();
-        json['user_id'] = userId;
-        final dateKey = json['date']?.toString() ?? '';
-        dedupedMap['${userId}_$dateKey'] = json;
-      }
-      final list = dedupedMap.values.toList();
       await client.from('daily_metrics').upsert(
         list,
         onConflict: 'user_id,date',
       );
+      return;
+    } catch (e) {
+      debugPrint('[PIPELINE][DB] ⚠ Bulk upsert metrics failed (likely missing UNIQUE constraint): $e');
+      debugPrint('[PIPELINE][DB] Falling back to partitioned query + bulk insert + parallel updates...');
+    }
+
+    // Strategy 2: Partitioned query + bulk insert + parallel updates fallback
+    try {
+      final existingRecords = await client.from('daily_metrics')
+          .select('id, date')
+          .eq('user_id', userId);
+
+      final Map<String, String> existingMap = {};
+      for (final item in existingRecords as List) {
+        final dateVal = item['date']?.toString() ?? '';
+        final rowId = item['id']?.toString() ?? '';
+        if (dateVal.isNotEmpty && rowId.isNotEmpty) {
+          existingMap[dateVal] = rowId;
+        }
+      }
+
+      final toInsert = <Map<String, dynamic>>[];
+      final toUpdate = <Map<String, dynamic>>[];
+
+      for (final row in list) {
+        final dateVal = row['date'] as String;
+        final payload = Map<String, dynamic>.from(row)..remove('id');
+
+        if (existingMap.containsKey(dateVal)) {
+          payload['id'] = existingMap[dateVal];
+          toUpdate.add(payload);
+        } else {
+          toInsert.add(payload);
+        }
+      }
+
+      if (toInsert.isNotEmpty) {
+        await client.from('daily_metrics').insert(toInsert);
+      }
+
+      if (toUpdate.isNotEmpty) {
+        const batchSize = 10;
+        for (int i = 0; i < toUpdate.length; i += batchSize) {
+          final batch = toUpdate.sublist(i, i + batchSize > toUpdate.length ? toUpdate.length : i + batchSize);
+          await Future.wait(batch.map((row) async {
+            final rowId = row['id'];
+            final updatePayload = Map<String, dynamic>.from(row)..remove('id');
+            await client.from('daily_metrics').update(updatePayload).eq('id', rowId);
+          }));
+        }
+      }
+      debugPrint('[PIPELINE][DB] ✅ Fallback metrics complete: inserted=${toInsert.length}, updated=${toUpdate.length}');
     } catch (e, stack) {
-      debugPrint('[PIPELINE][DB] Error upserting metrics: $e\n$stack');
+      debugPrint('[PIPELINE][DB] ❌ Error in fallback upsertMetrics: $e\n$stack');
     }
   }
 
@@ -209,41 +263,72 @@ class DatabaseService {
       debugPrint('[PIPELINE][DB] Falling back to individual row insert/update...');
     }
 
-    // Strategy 2: Fall back to individual insert-or-update per row
+    // Strategy 2: Fall back to partitioned query + bulk insert + parallel updates
     int inserted = 0;
     int updated = 0;
     int errors = 0;
-    for (final row in list) {
-      try {
-        final activityId = row['activity_id'] as String;
-
-        // Check if row already exists
-        final existing = await client.from('workout_sessions')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('activity_id', activityId)
-            .maybeSingle();
-
-        if (existing != null) {
-          // Update existing row
-          final existingId = existing['id'];
-          final updateData = Map<String, dynamic>.from(row);
-          updateData.remove('id'); // Don't overwrite the primary key
-          await client.from('workout_sessions')
-              .update(updateData)
-              .eq('id', existingId);
-          updated++;
-        } else {
-          // Insert new row (remove 'id' so Supabase auto-generates uuid)
-          final insertData = Map<String, dynamic>.from(row);
-          insertData.remove('id');
-          await client.from('workout_sessions').insert(insertData);
-          inserted++;
+    try {
+      // 1. Fetch all existing records' IDs and activity_ids for this user
+      final existingRecords = await client.from('workout_sessions')
+          .select('id, activity_id')
+          .eq('user_id', userId);
+      
+      final Map<String, String> existingMap = {};
+      for (final item in existingRecords as List) {
+        final actId = item['activity_id']?.toString() ?? '';
+        final rowId = item['id']?.toString() ?? '';
+        if (actId.isNotEmpty && rowId.isNotEmpty) {
+          existingMap[actId] = rowId;
         }
-      } catch (e) {
-        errors++;
-        debugPrint('[PIPELINE][DB] ⚠ Error upserting single workout row: $e');
       }
+
+      final toInsert = <Map<String, dynamic>>[];
+      final toUpdate = <Map<String, dynamic>>[];
+
+      for (final row in list) {
+        final activityId = row['activity_id'] as String;
+        final payload = Map<String, dynamic>.from(row)..remove('id');
+
+        if (existingMap.containsKey(activityId)) {
+          payload['id'] = existingMap[activityId];
+          toUpdate.add(payload);
+        } else {
+          toInsert.add(payload);
+        }
+      }
+
+      // 2. Perform bulk insert for new records
+      if (toInsert.isNotEmpty) {
+        try {
+          await client.from('workout_sessions').insert(toInsert);
+          inserted += toInsert.length;
+        } catch (e) {
+          debugPrint('[PIPELINE][DB] ⚠ Fallback: Error during bulk insert: $e');
+          errors += toInsert.length;
+        }
+      }
+
+      // 3. Perform updates in parallel batches of size 10 to avoid rate limit / connection exhaustion
+      if (toUpdate.isNotEmpty) {
+        const batchSize = 10;
+        for (int i = 0; i < toUpdate.length; i += batchSize) {
+          final batch = toUpdate.sublist(i, i + batchSize > toUpdate.length ? toUpdate.length : i + batchSize);
+          try {
+            await Future.wait(batch.map((row) async {
+              final rowId = row['id'];
+              final updatePayload = Map<String, dynamic>.from(row)..remove('id');
+              await client.from('workout_sessions').update(updatePayload).eq('id', rowId);
+              updated++;
+            }));
+          } catch (e) {
+            debugPrint('[PIPELINE][DB] ⚠ Fallback: Error during parallel update batch: $e');
+            errors += batch.length;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[PIPELINE][DB] ❌ Fallback query/setup failed completely: $e');
+      errors = list.length;
     }
     debugPrint('[PIPELINE][DB] ✅ Fallback complete — inserted=$inserted, updated=$updated, errors=$errors');
 
@@ -347,21 +432,75 @@ class DatabaseService {
 
   Future<void> upsertScores(List<DailyScore> scores) async {
     if (userId.isEmpty || scores.isEmpty) return;
+    final Map<String, Map<String, dynamic>> dedupedMap = {};
+    for (final s in scores) {
+      final json = s.toJson();
+      json['user_id'] = userId;
+      final dateKey = json['date']?.toString() ?? '';
+      dedupedMap['${userId}_$dateKey'] = json;
+    }
+    final list = dedupedMap.values.toList();
+
+    // Strategy 1: Bulk upsert with onConflict
     try {
-      final Map<String, Map<String, dynamic>> dedupedMap = {};
-      for (final s in scores) {
-        final json = s.toJson();
-        json['user_id'] = userId;
-        final dateKey = json['date']?.toString() ?? '';
-        dedupedMap['${userId}_$dateKey'] = json;
-      }
-      final list = dedupedMap.values.toList();
       await client.from('daily_scores').upsert(
         list,
         onConflict: 'user_id,date',
       );
+      return;
+    } catch (e) {
+      debugPrint('[PIPELINE][DB] ⚠ Bulk upsert scores failed (likely missing UNIQUE constraint): $e');
+      debugPrint('[PIPELINE][DB] Falling back to partitioned query + bulk insert + parallel updates...');
+    }
+
+    // Strategy 2: Partitioned query + bulk insert + parallel updates fallback
+    try {
+      final existingRecords = await client.from('daily_scores')
+          .select('id, date')
+          .eq('user_id', userId);
+
+      final Map<String, String> existingMap = {};
+      for (final item in existingRecords as List) {
+        final dateVal = item['date']?.toString() ?? '';
+        final rowId = item['id']?.toString() ?? '';
+        if (dateVal.isNotEmpty && rowId.isNotEmpty) {
+          existingMap[dateVal] = rowId;
+        }
+      }
+
+      final toInsert = <Map<String, dynamic>>[];
+      final toUpdate = <Map<String, dynamic>>[];
+
+      for (final row in list) {
+        final dateVal = row['date'] as String;
+        final payload = Map<String, dynamic>.from(row)..remove('id');
+
+        if (existingMap.containsKey(dateVal)) {
+          payload['id'] = existingMap[dateVal];
+          toUpdate.add(payload);
+        } else {
+          toInsert.add(payload);
+        }
+      }
+
+      if (toInsert.isNotEmpty) {
+        await client.from('daily_scores').insert(toInsert);
+      }
+
+      if (toUpdate.isNotEmpty) {
+        const batchSize = 10;
+        for (int i = 0; i < toUpdate.length; i += batchSize) {
+          final batch = toUpdate.sublist(i, i + batchSize > toUpdate.length ? toUpdate.length : i + batchSize);
+          await Future.wait(batch.map((row) async {
+            final rowId = row['id'];
+            final updatePayload = Map<String, dynamic>.from(row)..remove('id');
+            await client.from('daily_scores').update(updatePayload).eq('id', rowId);
+          }));
+        }
+      }
+      debugPrint('[PIPELINE][DB] ✅ Fallback scores complete: inserted=${toInsert.length}, updated=${toUpdate.length}');
     } catch (e, stack) {
-      debugPrint('[PIPELINE][DB] Error upserting scores: $e\n$stack');
+      debugPrint('[PIPELINE][DB] ❌ Error in fallback upsertScores: $e\n$stack');
     }
   }
 

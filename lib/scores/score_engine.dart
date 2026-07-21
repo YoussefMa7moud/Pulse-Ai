@@ -82,11 +82,17 @@ class ScoreEngine {
 
     // ── Quality component — deep + REM (0–40 pts) ───────────────────────────
     double qualityScore = 20; // neutral default
-    if (m.deepSleepMinutes != null && m.remSleepMinutes != null &&
-        m.totalSleepMinutes != null && m.totalSleepMinutes! > 0) {
-      final qualityRatio =
-          (m.deepSleepMinutes! + m.remSleepMinutes!) / m.totalSleepMinutes!;
-      qualityScore = (qualityRatio / 0.4) * 40;
+    if (m.totalSleepMinutes != null && m.totalSleepMinutes! > 0) {
+      final deepSleep = m.deepSleepMinutes ?? 0;
+      final remSleep = m.remSleepMinutes ?? 0;
+      if (deepSleep == 0 && remSleep == 0) {
+        // If stages are not recorded, fall back to a reasonable default based on sleep efficiency
+        final efficiency = m.sleepEfficiency ?? 85.0;
+        qualityScore = (efficiency / 100.0) * 35; // default to a safe 30-35 range
+      } else {
+        final qualityRatio = (deepSleep + remSleep) / m.totalSleepMinutes!;
+        qualityScore = (qualityRatio / 0.4) * 40;
+      }
       qualityScore = qualityScore.clamp(0, 40);
     }
 
@@ -97,8 +103,13 @@ class ScoreEngine {
       efficiencyBonus = efficiencyBonus.clamp(0, 10);
     }
 
-    // ── Awake penalty ───────────────────────────────────────────────────────
-    double awakePenalty = (m.awakeMinutes ?? 0) * 0.4;
+    // ── Awake penalty with 30-minute buffer (0-15 pts penalty max) ───────────
+    double awakePenalty = 0;
+    if (m.awakeMinutes != null && m.awakeMinutes! > 30) {
+      // Subtract the 30-minute buffer, then penalize 0.3 points per minute awake
+      awakePenalty = (m.awakeMinutes! - 30) * 0.3;
+      awakePenalty = awakePenalty.clamp(0, 15);
+    }
 
     // ── HRV bonus: high nocturnal HRV = restorative sleep ──────────────────
     double hrvBonus = 0;
@@ -124,30 +135,40 @@ class ScoreEngine {
   // ─────────────────────────────────────────────────────────────────────────
 
   static double _calculateStrainScore(DailyMetric m) {
-    // ── Active calories (0–35 pts) ───────────────────────────────────────────
-    final calScore = ((m.activeCalories ?? 0) / 1000) * 35;
-
-    // ── Exercise duration (0–25 pts) ─────────────────────────────────────────
-    final exerScore = ((m.exerciseDurationMinutes ?? 0) / 60) * 25;
-
-    // ── Steps (0–20 pts) ─────────────────────────────────────────────────────
-    final stepScore = ((m.steps ?? 0) / 10000) * 20;
-
-    // ── Elevation gain (0–10 pts) ────────────────────────────────────────────
-    final elevScore = ((m.totalElevationGainMeters ?? 0) / 500) * 10;
-
-    // ── Speed/cadence bonus: high intensity indicator (0–10 pts) ────────────
-    double intensityBonus = 0;
-    if (m.avgCadence != null && m.avgCadence! > 160) {
-      intensityBonus += 5; // High cadence = higher intensity
+    // ── Cardiovascular Load (0-40 pts) — based on Heart Rate Reserve (HRR) ───
+    double cardioScore = 15; // neutral baseline
+    if (m.averageHeartRate != null && m.restingHeartRate != null && m.maxHeartRate != null) {
+      final hrr = m.maxHeartRate! - m.restingHeartRate!;
+      if (hrr > 30) {
+        final hrrPercent = (m.averageHeartRate! - m.restingHeartRate!) / hrr;
+        cardioScore = (hrrPercent * 100).clamp(0, 40);
+      }
+    } else if (m.averageHeartRate != null && m.restingHeartRate != null) {
+      // Fallback with just avg + resting HR
+      final diff = m.averageHeartRate! - m.restingHeartRate!;
+      cardioScore = (diff * 1.5).clamp(0, 40);
     }
-    if (m.avgSpeedMps != null && m.avgSpeedMps! > 3.5) {
-      // > 12.6 km/h = fast running
-      intensityBonus += 5;
+
+    // ── Active calories volume (0–30 pts) ────────────────────────────────────
+    final calScore = (((m.activeCalories ?? 0) / 800) * 30).clamp(0.0, 30.0);
+
+    // ── Exercise duration volume (0–20 pts) ──────────────────────────────────
+    final exerScore = (((m.exerciseDurationMinutes ?? 0) / 45) * 20).clamp(0.0, 20.0);
+
+    // ── Steps volume (0–10 pts) ──────────────────────────────────────────────
+    final stepScore = (((m.steps ?? 0) / 10000) * 10).clamp(0.0, 10.0);
+
+    // ── Elevation gain / Cadence Intensity bonus (0–10 pts) ──────────────────
+    double intensityBonus = 0;
+    if (m.totalElevationGainMeters != null && m.totalElevationGainMeters! > 100) {
+      intensityBonus += (m.totalElevationGainMeters! / 100).clamp(0.0, 5.0);
+    }
+    if (m.avgCadence != null && m.avgCadence! > 160) {
+      intensityBonus += 5.0; // High cadence = higher intensity running/cycling
     }
 
     final finalScore =
-        calScore + exerScore + stepScore + elevScore + intensityBonus;
+        cardioScore + calScore + exerScore + stepScore + intensityBonus;
     return finalScore.clamp(0, 100);
   }
 

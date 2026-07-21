@@ -10,7 +10,9 @@ import '../presentation/screens/home/home_screen.dart';
 import '../presentation/screens/gym/exercise_screen.dart';
 import '../presentation/screens/gym/workout_detail_screen.dart';
 import '../data/collections/workout_session.dart';
+import '../data/collections/daily_metric.dart';
 import '../presentation/screens/health/health_screen.dart';
+import '../presentation/screens/health/sleep_detail_screen.dart';
 import '../presentation/screens/insights/insights_screen.dart';
 import '../presentation/screens/insights/score_detail_screen.dart';
 import '../presentation/screens/coach/coach_screen.dart';
@@ -108,6 +110,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) {
               final workout = state.extra as WorkoutSession;
               return WorkoutDetailScreen(workout: workout);
+            },
+          ),
+          GoRoute(
+            path: '/sleep_detail',
+            builder: (context, state) {
+              final metric = state.extra as DailyMetric;
+              return SleepDetailScreen(metric: metric);
             },
           ),
         ],

@@ -94,6 +94,10 @@ class HealthScreen extends ConsumerWidget {
                     _sectionHeader(context, 'Sleep', Icons.bedtime_rounded,
                         PulseTheme.sleepPrimary),
                     _sleepCard(context, metric),
+                    if (metric.floorsClimbed != null && metric.floorsClimbed! > 0) ...[
+                      const SizedBox(height: 12),
+                      _napCard(context, metric.floorsClimbed!),
+                    ],
 
                     const SizedBox(height: 20),
 
@@ -279,6 +283,63 @@ class HealthScreen extends ConsumerWidget {
     );
   }
 
+  Widget _napCard(BuildContext context, int napMinutes) {
+    final h = napMinutes ~/ 60;
+    final m = napMinutes % 60;
+    final durationStr = h > 0 ? '${h}h ${m}m' : '${m}m';
+    final textColor = PulseTheme.isDark ? Colors.white : Colors.black87;
+
+    return GlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: PulseTheme.sleepPrimary.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.battery_charging_full_rounded, color: PulseTheme.sleepPrimary, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Restorative Nap',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'This daytime nap provided restorative recovery.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: PulseTheme.secondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              durationStr,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: PulseTheme.sleepPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _sleepCard(BuildContext context, m) {
     final total = m.totalSleepMinutes;
     final deep = m.deepSleepMinutes ?? 0;
@@ -293,26 +354,34 @@ class HealthScreen extends ConsumerWidget {
       return h > 0 ? '${h}h ${min}m' : '${min}m';
     }
 
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Total Sleep',
-                      style: TextStyle(
-                          color: PulseTheme.secondary, fontSize: 12)),
-                  Text(fmtMins(total),
-                      style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: PulseTheme.sleepPrimary)),
-                ],
-              ),
+    return GestureDetector(
+      onTap: () => context.push('/sleep_detail', extra: m),
+      child: GlassCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text('Total Sleep',
+                            style: TextStyle(
+                                color: PulseTheme.secondary, fontSize: 12)),
+                        const SizedBox(width: 6),
+                        Icon(Icons.arrow_forward_ios_rounded, size: 10, color: PulseTheme.secondary),
+                      ],
+                    ),
+                    Text(fmtMins(total),
+                        style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: PulseTheme.sleepPrimary)),
+                  ],
+                ),
               if (m.sleepEfficiency != null)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -345,8 +414,9 @@ class HealthScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _sleepBar(int deep, int rem, int light, int awake, int total) {
     return ClipRRect(

@@ -123,7 +123,9 @@ final todayScoresProvider = FutureProvider<DailyScore>((ref) async {
 
     // Scores
     await HomeWidget.saveWidgetData<String>('recovery_score', score.recoveryScore?.toInt().toString() ?? '--');
-    await HomeWidget.saveWidgetData<String>('strain_score', score.strainScore?.toInt().toString() ?? '--');
+    // Convert 0-100 strain score to a 0.0-21.0 scale for the WHOOP-style widget layouts
+    final strainWidgetVal = score.strainScore != null ? (score.strainScore! / 100.0 * 21.0) : null;
+    await HomeWidget.saveWidgetData<String>('strain_score', strainWidgetVal?.toStringAsFixed(1) ?? '--');
     await HomeWidget.saveWidgetData<String>('sleep_score', score.sleepScore?.toInt().toString() ?? '--');
     await HomeWidget.saveWidgetData<String>('readiness_score', score.readinessScore?.toInt().toString() ?? '--');
     await HomeWidget.saveWidgetData<String>('energy_score', score.energyScore?.toInt().toString() ?? '--');

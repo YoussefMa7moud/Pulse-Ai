@@ -166,9 +166,7 @@ class SyncUseCase {
       scores.add(score);
     }
 
-    for (final score in scores) {
-      await _db.upsertScore(score);
-    }
+    await _db.upsertScores(scores);
   }
 
   Future<void> syncToday() async {

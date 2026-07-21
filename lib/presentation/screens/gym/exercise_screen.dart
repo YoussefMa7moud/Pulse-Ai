@@ -85,6 +85,20 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     return Icons.sports_rounded;
   }
 
+  Color _getSportColor(String? type) {
+    if (type == null) return PulseTheme.accent;
+    final t = type.toLowerCase();
+    if (t.contains('run')) return Colors.orangeAccent;
+    if (t.contains('walk')) return Colors.blueAccent;
+    if (t.contains('cycl') || t.contains('bik')) return Colors.tealAccent;
+    if (t.contains('swim')) return Colors.cyanAccent;
+    if (t.contains('soccer') || t.contains('football')) return Colors.greenAccent;
+    if (t.contains('strength') || t.contains('gym') || t.contains('lift') || t.contains('weight')) {
+      return Colors.redAccent;
+    }
+    return PulseTheme.accent;
+  }
+
   String _formatDuration(int? seconds) {
     if (seconds == null || seconds <= 0) return '--';
     final hrs = seconds ~/ 3600;
@@ -273,109 +287,104 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
                           (context, index) {
                             final item = flatList[index];
 
-                            if (item is String) {
-                              return StaggeredFadeSlide(
-                                index: index,
-                                child: Padding(
-                                  padding: EdgeInsets.only(top: index == 0 ? 8 : 24, bottom: 10, left: 4),
-                                  child: Text(
-                                    item,
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: textColor,
-                                      letterSpacing: 0.2,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
+                             if (item is String) {
+                               return Padding(
+                                 padding: EdgeInsets.only(top: index == 0 ? 8 : 24, bottom: 10, left: 4),
+                                 child: Text(
+                                   item,
+                                   style: TextStyle(
+                                     fontSize: 20,
+                                     fontWeight: FontWeight.bold,
+                                     color: textColor,
+                                     letterSpacing: 0.2,
+                                   ),
+                                 ),
+                               );
+                             }
 
-                            final w = item as WorkoutSession;
-                            final icon = _getSportIcon(w.workoutType);
-                            final sportTitle = _formatSportTitle(w.workoutType);
-                            final formattedTime = w.startTime != null
-                                ? DateFormat('h:mm a').format(w.startTime!)
-                                : '--';
+                             final w = item as WorkoutSession;
+                             final icon = _getSportIcon(w.workoutType);
+                             final sportColor = _getSportColor(w.workoutType);
+                             final sportTitle = _formatSportTitle(w.workoutType);
+                             final formattedTime = w.startTime != null
+                                 ? DateFormat('h:mm a').format(w.startTime!)
+                                 : '--';
 
-                            return StaggeredFadeSlide(
-                              index: index,
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: GestureDetector(
-                                  onTap: () => context.push('/workout_detail', extra: w),
-                                  child: GlassContainer(
-                                    padding: const EdgeInsets.all(16),
-                                    borderColor: PulseTheme.accent.withOpacity(0.15),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color: PulseTheme.accent.withOpacity(0.15),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Icon(icon, color: PulseTheme.accent, size: 26),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                sportTitle,
-                                                style: TextStyle(
-                                                  color: textColor,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 16,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                formattedTime,
-                                                style: TextStyle(
-                                                  color: PulseTheme.secondary,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  Icon(Icons.timer_outlined, size: 15, color: PulseTheme.secondary),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    _formatDuration(w.durationSeconds),
-                                                    style: TextStyle(
-                                                      color: textColor,
-                                                      fontSize: 13,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                  if (w.totalCaloriesKcal != null) ...[
-                                                    const SizedBox(width: 16),
-                                                    Icon(Icons.local_fire_department_outlined, size: 15, color: PulseTheme.secondary),
-                                                    const SizedBox(width: 4),
-                                                    Text(
-                                                      '${w.totalCaloriesKcal!.toStringAsFixed(0)} kcal',
-                                                      style: TextStyle(
-                                                        color: textColor,
-                                                        fontSize: 13,
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Icon(Icons.chevron_right_rounded, color: PulseTheme.secondary),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
+                             return Padding(
+                               padding: const EdgeInsets.only(bottom: 12),
+                               child: GestureDetector(
+                                 onTap: () => context.push('/workout_detail', extra: w),
+                                 child: GlassContainer(
+                                   padding: const EdgeInsets.all(16),
+                                   borderColor: sportColor.withOpacity(0.25),
+                                   child: Row(
+                                     children: [
+                                       Container(
+                                         padding: const EdgeInsets.all(12),
+                                         decoration: BoxDecoration(
+                                           color: sportColor.withOpacity(0.15),
+                                           shape: BoxShape.circle,
+                                         ),
+                                         child: Icon(icon, color: sportColor, size: 26),
+                                       ),
+                                       const SizedBox(width: 16),
+                                       Expanded(
+                                         child: Column(
+                                           crossAxisAlignment: CrossAxisAlignment.start,
+                                           children: [
+                                             Text(
+                                               sportTitle,
+                                               style: TextStyle(
+                                                 color: textColor,
+                                                 fontWeight: FontWeight.bold,
+                                                 fontSize: 16,
+                                               ),
+                                             ),
+                                             const SizedBox(height: 4),
+                                             Text(
+                                               formattedTime,
+                                               style: TextStyle(
+                                                 color: PulseTheme.secondary,
+                                                 fontSize: 12,
+                                               ),
+                                             ),
+                                             const SizedBox(height: 8),
+                                             Row(
+                                               children: [
+                                                 Icon(Icons.timer_outlined, size: 15, color: PulseTheme.secondary),
+                                                 const SizedBox(width: 4),
+                                                 Text(
+                                                   _formatDuration(w.durationSeconds),
+                                                   style: TextStyle(
+                                                     color: textColor,
+                                                     fontSize: 13,
+                                                     fontWeight: FontWeight.w600,
+                                                   ),
+                                                 ),
+                                                 if (w.totalCaloriesKcal != null) ...[
+                                                   const SizedBox(width: 16),
+                                                   Icon(Icons.local_fire_department_outlined, size: 15, color: PulseTheme.secondary),
+                                                   const SizedBox(width: 4),
+                                                   Text(
+                                                     '${w.totalCaloriesKcal!.toStringAsFixed(0)} kcal',
+                                                     style: TextStyle(
+                                                       color: textColor,
+                                                       fontSize: 13,
+                                                       fontWeight: FontWeight.w600,
+                                                     ),
+                                                   ),
+                                                 ],
+                                               ],
+                                             ),
+                                           ],
+                                         ),
+                                       ),
+                                       Icon(Icons.chevron_right_rounded, color: PulseTheme.secondary),
+                                     ],
+                                   ),
+                                 ),
+                               ),
+                             );
                           },
                           childCount: flatList.length,
                         ),
