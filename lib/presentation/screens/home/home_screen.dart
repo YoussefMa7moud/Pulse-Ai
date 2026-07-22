@@ -14,7 +14,9 @@ import '../../../widgets/pulse_loader.dart';
 import '../../../services/ai_service.dart';
 import '../../../widgets/animated_counter.dart';
 import '../../../widgets/staggered_animation.dart';
+import '../../../data/collections/daily_metric.dart';
 import '../../../utils/sync_helper.dart';
+
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -39,86 +41,128 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     };
   }
 
-  Widget _buildBedtimeIndicator(int? totalSleepMinutes) {
-    final times = _estimateSleepTimes(totalSleepMinutes);
+  Map<String, String> _getActualSleepTimes(DailyMetric metric) {
+    final startVal = metric.systolicBP;
+    final endVal = metric.diastolicBP;
+    
+    if (startVal != null && startVal >= 0 && endVal != null && endVal >= 0) {
+      final startMin = startVal.toInt();
+      final endMin = endVal.toInt();
+      
+      final bedtimeHour = startMin ~/ 60;
+      final bedtimeMin = startMin % 60;
+      final wakeHour = endMin ~/ 60;
+      final wakeMin = endMin % 60;
+      
+      final bedtimeTime = DateTime(2026, 1, 1, bedtimeHour, bedtimeMin);
+      final wakeTime = DateTime(2026, 1, 1, wakeHour, wakeMin);
+      
+      return {
+        'bedtime': DateFormat('h:mm a').format(bedtimeTime),
+        'waketime': DateFormat('h:mm a').format(wakeTime),
+      };
+    }
+    
+    return _estimateSleepTimes(metric.totalSleepMinutes);
+  }
+
+  Widget _buildBedtimeIndicator(DailyMetric metric) {
+    final times = _getActualSleepTimes(metric);
     final isDark = PulseTheme.isDark;
     final textColor = isDark ? Colors.white : Colors.black87;
 
-    return StyledCard(
-      color: PulseTheme.sleepPrimary,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
+    return Stack(
+      children: [
+        Positioned(
+          left: 16,
+          top: -6,
+          child: Opacity(
+            opacity: isDark ? 0.05 : 0.03,
+            child: Icon(Icons.nightlight_round, size: 76, color: Colors.indigoAccent),
+          ),
+        ),
+        Positioned(
+          right: 16,
+          top: -6,
+          child: Opacity(
+            opacity: isDark ? 0.05 : 0.03,
+            child: Icon(Icons.wb_sunny_rounded, size: 76, color: Colors.orangeAccent),
+          ),
+        ),
+        StyledCard(
+          color: PulseTheme.sleepPrimary,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: PulseTheme.sleepPrimary.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.bedtime_rounded, color: PulseTheme.sleepPrimary, size: 24),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Text(
-                    'BEDTIME',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: PulseTheme.secondary, letterSpacing: 1.0),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: PulseTheme.sleepPrimary.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.bedtime_rounded, color: PulseTheme.sleepPrimary, size: 24),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    times['bedtime']!,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'BEDTIME',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: PulseTheme.secondary, letterSpacing: 1.0),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        times['bedtime']!,
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Expanded(
+                child: SizedBox(
+                  height: 40,
+                  child: CustomPaint(
+                    painter: _CurveSeparatorPainter(
+                      color: isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.08),
+                    ),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'WOKE UP',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: PulseTheme.secondary, letterSpacing: 1.0),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        times['waketime']!,
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.wb_sunny_rounded, color: Colors.amber, size: 24),
                   ),
                 ],
               ),
             ],
           ),
-          // Connective sleeping bar indicator
-          Expanded(
-            child: Container(
-              height: 4,
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [PulseTheme.sleepPrimary.withOpacity(0.2), PulseTheme.sleepPrimary],
-                ),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          Row(
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    'WOKE UP',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: PulseTheme.secondary, letterSpacing: 1.0),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    times['waketime']!,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 16),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.wb_sunny_rounded, color: Colors.amber, size: 24),
-              ),
-            ],
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -564,7 +608,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                               const SizedBox(height: 24),
                               metricsAsync.when(
-                                data: (metrics) => _buildBedtimeIndicator(metrics.totalSleepMinutes),
+                                data: (metrics) => _buildBedtimeIndicator(metrics),
                                 loading: () => const SizedBox(),
                                 error: (_, __) => const SizedBox(),
                               ),
@@ -1269,4 +1313,30 @@ class _DateNavigator extends ConsumerWidget {
       ],
     );
   }
+}
+
+class _CurveSeparatorPainter extends CustomPainter {
+  final Color color;
+  _CurveSeparatorPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path();
+    path.moveTo(16, size.height / 2);
+    path.cubicTo(
+      size.width * 0.35, size.height / 2 - 10,
+      size.width * 0.65, size.height / 2 + 10,
+      size.width - 16, size.height / 2,
+    );
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

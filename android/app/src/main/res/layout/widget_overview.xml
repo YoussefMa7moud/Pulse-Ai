@@ -59,8 +59,8 @@
 
             <!-- Concentric Center Score Display -->
             <LinearLayout
-                android:layout_width="60dp"
-                android:layout_height="60dp"
+                android:layout_width="70dp"
+                android:layout_height="70dp"
                 android:layout_gravity="center"
                 android:gravity="center"
                 android:orientation="vertical">
@@ -71,7 +71,7 @@
                     android:layout_height="wrap_content"
                     android:text="RECOVERY"
                     android:textColor="#22D3EE"
-                    android:textSize="8sp"
+                    android:textSize="9sp"
                     android:textStyle="bold"
                     android:letterSpacing="0.05" />
 
@@ -81,7 +81,7 @@
                     android:layout_height="wrap_content"
                     android:text="--"
                     android:textColor="#FFFFFF"
-                    android:textSize="18sp"
+                    android:textSize="22sp"
                     android:textStyle="bold"
                     android:includeFontPadding="false" />
             </LinearLayout>
@@ -125,7 +125,7 @@
                         android:layout_height="wrap_content"
                         android:text="--"
                         android:textColor="#FFFFFF"
-                        android:textSize="13sp"
+                        android:textSize="16sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -133,8 +133,10 @@
                         android:layout_height="wrap_content"
                         android:text=" / 21"
                         android:textColor="#4B5563"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:layout_gravity="bottom"
+                        android:layout_marginBottom="2dp" />
                 </LinearLayout>
 
             </RelativeLayout>
@@ -149,9 +151,9 @@
                     android:id="@+id/label_sleep"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="SLEEP PERFORMANCE"
+                    android:text="SLEEP"
                     android:textColor="#818CF8"
-                    android:textSize="10sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
                     android:layout_alignParentStart="true"
                     android:letterSpacing="0.05" />
@@ -162,7 +164,7 @@
                     android:layout_height="wrap_content"
                     android:text="--"
                     android:textColor="#FFFFFF"
-                    android:textSize="13sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:layout_alignParentEnd="true" />
 
@@ -184,9 +186,9 @@
                     android:id="@+id/label_stress"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="DAY STRESS"
+                    android:text="STRESS"
                     android:textColor="#F43F5E"
-                    android:textSize="10sp"
+                    android:textSize="11sp"
                     android:textStyle="bold"
                     android:layout_alignParentStart="true"
                     android:letterSpacing="0.05" />
@@ -197,7 +199,7 @@
                     android:layout_height="wrap_content"
                     android:text="--"
                     android:textColor="#FFFFFF"
-                    android:textSize="13sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:layout_alignParentEnd="true" />
 

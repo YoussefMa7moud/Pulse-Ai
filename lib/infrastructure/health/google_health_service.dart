@@ -320,6 +320,8 @@ class GoogleHealthService implements HealthRepository {
       if (sleepMap['total']! > 0) metric.totalSleepMinutes = sleepMap['total'];
       if (sleepMap['awake']! > 0) metric.awakeMinutes = sleepMap['awake'];
       if (sleepMap['nap']! > 0) metric.floorsClimbed = sleepMap['nap'];
+      if (sleepMap['start']! >= 0) metric.systolicBP = sleepMap['start']!.toDouble();
+      if (sleepMap['end']! >= 0) metric.diastolicBP = sleepMap['end']!.toDouble();
 
       results.add(metric);
       current = current.add(const Duration(days: 1));
@@ -573,6 +575,8 @@ class GoogleHealthService implements HealthRepository {
       'asleep': 0,
       'awake': 0,
       'nap': 0,
+      'start': -1,
+      'end': -1,
     };
     if (sleepPoints.isEmpty) return result;
 
@@ -671,6 +675,13 @@ class GoogleHealthService implements HealthRepository {
       result['awake'] = result['total']! - stagesSum;
     } else {
       result['awake'] = awake;
+    }
+
+    if (mainSessionPoint != null) {
+      final startLocal = mainSessionPoint.dateFrom.toLocal();
+      result['start'] = startLocal.hour * 60 + startLocal.minute;
+      final endLocal = mainSessionPoint.dateTo.toLocal();
+      result['end'] = endLocal.hour * 60 + endLocal.minute;
     }
 
     return result;

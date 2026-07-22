@@ -18,64 +18,103 @@ class HeroScoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = PulseTheme.isDark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 32),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(
+          colors: [
+            color.withOpacity(0.08),
+            color.withOpacity(0.02),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: color.withOpacity(0.15),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.05),
+            blurRadius: 24,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
       child: Column(
         children: [
-          Text(title.toUpperCase(), style: Theme.of(context).textTheme.titleLarge?.copyWith(letterSpacing: 2, color: PulseTheme.secondary, fontSize: 16)),
-          const SizedBox(height: 24),
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              letterSpacing: 2.5,
+              color: color,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 20),
           SizedBox(
-            height: 280,
-            width: 280,
+            height: 190,
+            width: 190,
             child: Stack(
               fit: StackFit.expand,
               children: [
+                // Soft radial glow in the center
+                Center(
+                  child: Container(
+                    width: 130,
+                    height: 130,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          color.withOpacity(0.12),
+                          color.withOpacity(0.0),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
                 // Background Track
                 CircularProgressIndicator(
                   value: 1.0,
-                  strokeWidth: 24,
+                  strokeWidth: 16,
                   backgroundColor: Colors.transparent,
-                  color: PulseTheme.surfaceLight.withOpacity(0.5),
-                ),
-                // Shadow for premium feel
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: color.withOpacity(0.15),
-                        blurRadius: 40,
-                        spreadRadius: 10,
-                      )
-                    ],
-                  ),
+                  color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05),
                 ),
                 // Actual Progress
                 CircularProgressIndicator(
                   value: score / 100,
-                  strokeWidth: 24,
+                  strokeWidth: 16,
                   backgroundColor: Colors.transparent,
                   color: color,
                   strokeCap: StrokeCap.round,
                 ),
                 Center(
-                  child: Column(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(
                         score.toInt().toString(),
-                        style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                          color: Colors.white,
-                          fontSize: 96,
-                          fontWeight: FontWeight.w800,
+                        style: TextStyle(
+                          color: textColor,
+                          fontSize: 54,
+                          fontWeight: FontWeight.w900,
                           height: 1.0,
                         ),
                       ),
                       Text(
-                        ' / 100',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: PulseTheme.secondary,
-                          fontWeight: FontWeight.w600,
+                        '%',
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ],
@@ -86,19 +125,21 @@ class HeroScoreCard extends StatelessWidget {
           ),
           if (message != null)
             Padding(
-              padding: const EdgeInsets.only(top: 24),
+              padding: const EdgeInsets.only(top: 20),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(20),
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: color.withOpacity(0.2), width: 1),
                 ),
                 child: Text(
-                  message!,
+                  message!.toUpperCase(),
                   style: TextStyle(
                     color: color,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11,
+                    letterSpacing: 1.0,
                   ),
                 ),
               ),
