@@ -1,11 +1,28 @@
 package com.example.flutter_application_1
 
-import android.content.SharedPreferences
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.widget.RemoteViews
 
 object WidgetThemeHelper {
+
+    fun setOnClickLaunchApp(context: Context, views: RemoteViews, widgetId: Int) {
+        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            ?: Intent(context, MainActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            widgetId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        try {
+            views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
+        } catch (_: Exception) {}
+    }
 
     fun applyTheme(
         context: Context,

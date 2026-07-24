@@ -49,7 +49,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
     }
   }
 
-  Future<void> _syncAndRefresh({int daysBack = 30}) async {
+  Future<void> _syncAndRefresh({int daysBack = 14}) async {
     if (_isSyncing) return;
     setState(() => _isSyncing = true);
     try {
@@ -64,7 +64,7 @@ class _ExerciseScreenState extends ConsumerState<ExerciseScreen> {
       );
     }
     if (!mounted) return;
-    ref.invalidate(allWorkoutsProvider);
+    invalidateAllDataProviders(ref);
     setState(() => _isSyncing = false);
   }
 

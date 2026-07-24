@@ -17,6 +17,8 @@ class PulseSleepWidgetProvider : HomeWidgetProvider() {
                 setProgressBar(R.id.sleep_progress, 100, scoreVal, false)
                 setTextViewText(R.id.widget_sleep_duration, "$duration hrs")
 
+                WidgetThemeHelper.setOnClickLaunchApp(context, this, widgetId)
+
                 WidgetThemeHelper.applyTheme(
                     context, this, widgetData,
                     R.drawable.widget_bg_sleep,

@@ -15,6 +15,8 @@ class PulseRecoveryWidgetProvider : HomeWidgetProvider() {
                 setTextViewText(R.id.widget_recovery_score, if (score == "--") "--" else "$score%")
                 setProgressBar(R.id.recovery_progress, 100, scoreVal, false)
 
+                WidgetThemeHelper.setOnClickLaunchApp(context, this, widgetId)
+
                 WidgetThemeHelper.applyTheme(
                     context, this, widgetData,
                     R.drawable.widget_bg_recovery,

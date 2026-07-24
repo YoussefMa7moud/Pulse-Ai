@@ -27,9 +27,24 @@ class SyncUseCase {
   final HealthRepository _healthRepo;
   final DatabaseService _db;
 
+  bool _isSyncing = false;
+
   SyncUseCase(this._healthRepo, this._db);
 
-  Future<SyncResult> syncAll({int daysBack = 30}) async {
+  /// Performs a full historical sync (defaults to 14 days).
+  /// Past data is stored permanently in Supabase.
+  Future<SyncResult> syncAll({int daysBack = 14}) async {
+    if (_isSyncing) {
+      debugPrint('[PIPELINE][SYNC] syncAll skipped: another sync is already in progress');
+      return SyncResult(
+        success: true,
+        daysImported: 0,
+        workoutsImported: 0,
+        completedAt: DateTime.now(),
+      );
+    }
+
+    _isSyncing = true;
     debugPrint('┌─────────────────────────────────────────────────────────────');
     debugPrint('│ [PIPELINE][SYNC] syncAll START — daysBack=$daysBack');
     debugPrint('└─────────────────────────────────────────────────────────────');
@@ -41,16 +56,12 @@ class SyncUseCase {
 
       debugPrint('[PIPELINE][SYNC] Date range: $start → $end');
 
-      // ── 1. Bulk-fetch ALL workouts in a single Health Connect call ──
-      debugPrint('[PIPELINE][SYNC] Step 1: Fetching ALL workouts via fetchWorkoutsInRange...');
+      // 1. Bulk-fetch ALL workouts in range
       final List<WorkoutSession> allWorkouts = await _healthRepo.fetchWorkoutsInRange(start, end);
-      debugPrint('[PIPELINE][SYNC] Step 1 complete: ${allWorkouts.length} workouts fetched');
+      debugPrint('[PIPELINE][SYNC] Step 1: ${allWorkouts.length} workouts fetched');
 
-      // ── 2. Bulk-fetch daily metrics via range query (limit to max 30 days to prevent Health Connect IPC block)
-      final metricStart = daysBack > 30 ? end.subtract(const Duration(days: 30)) : start;
-      debugPrint('[PIPELINE][SYNC] Step 2: Bulk-fetching daily metrics from $metricStart to $end...');
-      final List<DailyMetric> rawMetrics = await _healthRepo.fetchMetricsInRange(metricStart, end);
-
+      // 2. Bulk-fetch daily metrics via range query
+      final List<DailyMetric> rawMetrics = await _healthRepo.fetchMetricsInRange(start, end);
 
       final List<DailyMetric> allMetrics = [];
       for (final metric in rawMetrics) {
@@ -68,32 +79,12 @@ class SyncUseCase {
         allMetrics.add(metric);
       }
 
-
-      // Log summary of what was fetched
-      final daysWithSteps = allMetrics.where((m) => m.steps != null && m.steps! > 0).length;
-      final daysWithSleep = allMetrics.where((m) => m.totalSleepMinutes != null && m.totalSleepMinutes! > 0).length;
-      final daysWithHR = allMetrics.where((m) => m.averageHeartRate != null).length;
-      debugPrint('[PIPELINE][SYNC] Step 2 complete: ${allMetrics.length} days — '
-          '$daysWithSteps with steps, $daysWithSleep with sleep, $daysWithHR with HR');
-
-      // ── 3. Persist to Supabase ──
+      // 3. Persist to Supabase
       debugPrint('[PIPELINE][SYNC] Step 3: Persisting ${allMetrics.length} metrics and ${allWorkouts.length} workouts to Supabase...');
       await _db.upsertMetrics(allMetrics);
       await _db.upsertWorkoutSessions(allWorkouts);
 
-      // Verify workouts were actually written
-      if (allWorkouts.isNotEmpty) {
-        final verifyWorkouts = await _db.getAllWorkouts();
-        debugPrint('[PIPELINE][SYNC] Step 3 VERIFY: ${verifyWorkouts.length} workouts now in DB (attempted to write ${allWorkouts.length})');
-        if (verifyWorkouts.isEmpty) {
-          debugPrint('[PIPELINE][SYNC] ⚠⚠⚠ CRITICAL: Workouts were fetched from Health Connect but NONE exist in DB after upsert!');
-          debugPrint('[PIPELINE][SYNC] This likely means the Supabase workout_sessions table has issues.');
-        }
-      }
-      debugPrint('[PIPELINE][SYNC] Step 3 complete: data persisted');
-
-      // ── 4. Recalculate scores ──
-      debugPrint('[PIPELINE][SYNC] Step 4: Recalculating scores...');
+      // 4. Recalculate scores
       await _recalculateScores(allMetrics);
 
       profile.lastSyncDate = DateTime.now();
@@ -123,10 +114,20 @@ class SyncUseCase {
         error: isOfflineErr ? 'Offline mode active. Displaying cached data.' : e.toString(),
         completedAt: DateTime.now(),
       );
+    } finally {
+      _isSyncing = false;
     }
-
   }
 
+  /// Fast incremental sync for recent days (defaults to today + yesterday).
+  /// Used for routine app launch, app resume, and daily updates.
+  Future<SyncResult> syncRecent({int daysBack = 2}) async {
+    return await syncAll(daysBack: daysBack);
+  }
+
+  Future<void> syncToday() async {
+    await syncRecent(daysBack: 2);
+  }
 
   void _applyProfileToMetric(DailyMetric metric, UserProfile profile) {
     if (metric.weightKg == null || metric.weightKg == 0.0) {
@@ -149,7 +150,6 @@ class SyncUseCase {
       
       metric.caloriesBurned = estimatedBmr;
       metric.totalCalories = ((metric.activeCalories ?? 0.0) + estimatedBmr).toInt();
-      debugPrint('[SyncUseCase] Applied Harris-Benedict BMR to metric for ${metric.date}: ${estimatedBmr.toStringAsFixed(1)} kcal (weight=$w, height=$h, age=$age, gender=$gender)');
     }
   }
 
@@ -164,32 +164,9 @@ class SyncUseCase {
       final priorHistory = history.where((m) => m.date.isBefore(metric.date)).toList();
       final score = ScoreEngine.calculateScores(metric, priorHistory);
       scores.add(score);
+      await Future.delayed(Duration.zero);
     }
 
     await _db.upsertScores(scores);
-  }
-
-  Future<void> syncToday() async {
-    try {
-      final today = DateTime.now();
-      final metric = await _healthRepo.fetchMetricsForDay(today);
-      final workouts = await _healthRepo.fetchWorkoutsForDay(today);
-      
-      if (workouts.isNotEmpty) metric.workoutSessionCount = workouts.length;
-
-      final profile = await _db.getUserProfile();
-      _applyProfileToMetric(metric, profile);
-
-      await _db.upsertMetric(metric);
-      await _db.upsertWorkoutSessions(workouts);
-
-      final history = await _db.getRecentMetrics(days: 30);
-      final priorHistory = history.where((m) => m.date.isBefore(metric.date)).toList();
-      final score = ScoreEngine.calculateScores(metric, priorHistory);
-      
-      await _db.upsertScore(score);
-    } catch (e) {
-      debugPrint('[SyncUseCase] syncToday error: $e');
-    }
   }
 }

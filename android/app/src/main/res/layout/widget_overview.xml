@@ -14,56 +14,77 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:padding="16dp">
+        android:orientation="vertical"
+        android:padding="12dp">
 
-        <!-- Left Side: Concentric Rings (Whoop-Style) -->
-        <FrameLayout
-            android:layout_width="120dp"
-            android:layout_height="120dp"
-            android:layout_gravity="center_vertical">
+        <!-- Header Bar -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp">
 
-            <!-- Strain Progress Ring (Outer: 50dp radius) -->
-            <ProgressBar
-                android:id="@+id/strain_progress"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:indeterminate="false"
-                android:max="210"
-                android:progress="0"
-                android:progressDrawable="@drawable/widget_concentric_strain" />
-
-            <!-- Recovery Progress Ring (Middle: 40dp radius) -->
-            <ProgressBar
-                android:id="@+id/recovery_progress"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:indeterminate="false"
-                android:max="100"
-                android:progress="0"
-                android:progressDrawable="@drawable/widget_concentric_recovery" />
-
-            <!-- Sleep Progress Ring (Inner: 30dp radius) -->
-            <ProgressBar
-                android:id="@+id/sleep_progress"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:indeterminate="false"
-                android:max="100"
-                android:progress="0"
-                android:progressDrawable="@drawable/widget_concentric_sleep" />
-
-            <!-- Concentric Center Score Display -->
             <LinearLayout
-                android:layout_width="70dp"
-                android:layout_height="70dp"
-                android:layout_gravity="center"
-                android:gravity="center"
-                android:orientation="vertical">
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_alignParentStart="true">
+
+                <TextView
+                    android:id="@+id/widget_logo_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="PULSE"
+                    android:textColor="#06B6D4"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/widget_bg_shape"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="2dp"
+                    android:letterSpacing="0.08" />
+
+                <TextView
+                    android:id="@+id/widget_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="HEALTH GLANCE"
+                    android:textColor="#E2E8F0"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:layout_marginStart="8dp"
+                    android:letterSpacing="0.05" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/widget_subtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DAILY VITALITY"
+                android:textColor="#94A3B8"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:layout_alignParentEnd="true"
+                android:letterSpacing="0.05" />
+        </RelativeLayout>
+
+        <!-- 4 Health Pillars (Recovery, Strain, Sleep, Stress) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:baselineAligned="false">
+
+            <!-- Pillar 1: RECOVERY -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="@drawable/widget_pillar_bg_recovery"
+                android:padding="8dp"
+                android:gravity="center_vertical"
+                android:layout_marginEnd="4dp">
 
                 <TextView
                     android:id="@+id/label_rec"
@@ -73,7 +94,9 @@
                     android:textColor="#22D3EE"
                     android:textSize="9sp"
                     android:textStyle="bold"
-                    android:letterSpacing="0.05" />
+                    android:letterSpacing="0.04"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
 
                 <TextView
                     android:id="@+id/overview_recovery"
@@ -81,26 +104,43 @@
                     android:layout_height="wrap_content"
                     android:text="--"
                     android:textColor="#FFFFFF"
-                    android:textSize="22sp"
+                    android:textSize="17sp"
                     android:textStyle="bold"
-                    android:includeFontPadding="false" />
+                    android:includeFontPadding="false"
+                    android:layout_marginTop="2dp" />
+
+                <TextView
+                    android:id="@+id/overview_rec_sub"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Score"
+                    android:textColor="#94A3B8"
+                    android:textSize="9sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:layout_marginBottom="4dp" />
+
+                <ProgressBar
+                    android:id="@+id/recovery_progress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="4dp"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_bar_cyan" />
             </LinearLayout>
 
-        </FrameLayout>
-
-        <!-- Right Side: Details Columns -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:gravity="center_vertical"
-            android:layout_marginStart="16dp">
-
-            <!-- Strain Row -->
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp">
+            <!-- Pillar 2: STRAIN -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="@drawable/widget_pillar_bg_strain"
+                android:padding="8dp"
+                android:gravity="center_vertical"
+                android:layout_marginEnd="4dp">
 
                 <TextView
                     android:id="@+id/label_strain"
@@ -108,44 +148,55 @@
                     android:layout_height="wrap_content"
                     android:text="STRAIN"
                     android:textColor="#F97316"
-                    android:textSize="10sp"
+                    android:textSize="9sp"
                     android:textStyle="bold"
-                    android:layout_alignParentStart="true"
-                    android:letterSpacing="0.05" />
+                    android:letterSpacing="0.04"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
 
-                <LinearLayout
+                <TextView
+                    android:id="@+id/overview_strain"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_alignParentEnd="true">
+                    android:text="--"
+                    android:textColor="#FFFFFF"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:includeFontPadding="false"
+                    android:layout_marginTop="2dp" />
 
-                    <TextView
-                        android:id="@+id/overview_strain"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="--"
-                        android:textColor="#FFFFFF"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/overview_strain_sub"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="/ 21.0"
+                    android:textColor="#94A3B8"
+                    android:textSize="9sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:layout_marginBottom="4dp" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text=" / 21"
-                        android:textColor="#4B5563"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:layout_gravity="bottom"
-                        android:layout_marginBottom="2dp" />
-                </LinearLayout>
+                <ProgressBar
+                    android:id="@+id/strain_progress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="4dp"
+                    android:indeterminate="false"
+                    android:max="210"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_bar_orange" />
+            </LinearLayout>
 
-            </RelativeLayout>
-
-            <!-- Sleep Row -->
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp">
+            <!-- Pillar 3: SLEEP -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="@drawable/widget_pillar_bg_sleep"
+                android:padding="8dp"
+                android:gravity="center_vertical"
+                android:layout_marginEnd="4dp">
 
                 <TextView
                     android:id="@+id/label_sleep"
@@ -153,10 +204,11 @@
                     android:layout_height="wrap_content"
                     android:text="SLEEP"
                     android:textColor="#818CF8"
-                    android:textSize="11sp"
+                    android:textSize="9sp"
                     android:textStyle="bold"
-                    android:layout_alignParentStart="true"
-                    android:letterSpacing="0.05" />
+                    android:letterSpacing="0.04"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
 
                 <TextView
                     android:id="@+id/overview_sleep"
@@ -164,23 +216,42 @@
                     android:layout_height="wrap_content"
                     android:text="--"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"
+                    android:textSize="17sp"
                     android:textStyle="bold"
-                    android:layout_alignParentEnd="true" />
+                    android:includeFontPadding="false"
+                    android:layout_marginTop="2dp" />
 
-            </RelativeLayout>
+                <TextView
+                    android:id="@+id/overview_sleep_sub"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Quality"
+                    android:textColor="#94A3B8"
+                    android:textSize="9sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:layout_marginBottom="4dp" />
 
-            <!-- Divider -->
-            <ImageView
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="#1AFFFFFF"
-                android:layout_marginBottom="8dp" />
+                <ProgressBar
+                    android:id="@+id/sleep_progress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="4dp"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_bar_purple" />
+            </LinearLayout>
 
-            <!-- Stress Row (with horizontal bar) -->
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+            <!-- Pillar 4: STRESS -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:background="@drawable/widget_pillar_bg_stress"
+                android:padding="8dp"
+                android:gravity="center_vertical">
 
                 <TextView
                     android:id="@+id/label_stress"
@@ -188,10 +259,11 @@
                     android:layout_height="wrap_content"
                     android:text="STRESS"
                     android:textColor="#F43F5E"
-                    android:textSize="11sp"
+                    android:textSize="9sp"
                     android:textStyle="bold"
-                    android:layout_alignParentStart="true"
-                    android:letterSpacing="0.05" />
+                    android:letterSpacing="0.04"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
 
                 <TextView
                     android:id="@+id/overview_stress"
@@ -199,23 +271,32 @@
                     android:layout_height="wrap_content"
                     android:text="--"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"
+                    android:textSize="17sp"
                     android:textStyle="bold"
-                    android:layout_alignParentEnd="true" />
+                    android:includeFontPadding="false"
+                    android:layout_marginTop="2dp" />
 
-            </RelativeLayout>
+                <TextView
+                    android:id="@+id/overview_stress_sub"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Balance"
+                    android:textColor="#94A3B8"
+                    android:textSize="9sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:layout_marginBottom="4dp" />
 
-            <!-- Horizontal Stress Progress Bar -->
-            <ProgressBar
-                android:id="@+id/stress_progress"
-                style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="4dp"
-                android:layout_marginTop="4dp"
-                android:indeterminate="false"
-                android:max="100"
-                android:progress="0"
-                android:progressDrawable="@drawable/widget_bar_red" />
+                <ProgressBar
+                    android:id="@+id/stress_progress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="4dp"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/widget_bar_red" />
+            </LinearLayout>
 
         </LinearLayout>
 

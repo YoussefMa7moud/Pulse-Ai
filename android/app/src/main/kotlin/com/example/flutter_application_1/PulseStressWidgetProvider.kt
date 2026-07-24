@@ -20,6 +20,8 @@ class PulseStressWidgetProvider : HomeWidgetProvider() {
                 setProgressBar(R.id.stress_progress, 100, scoreVal, false)
                 setTextViewText(R.id.widget_stress_level, level)
 
+                WidgetThemeHelper.setOnClickLaunchApp(context, this, widgetId)
+
                 WidgetThemeHelper.applyTheme(
                     context, this, widgetData,
                     R.drawable.widget_bg_dark,

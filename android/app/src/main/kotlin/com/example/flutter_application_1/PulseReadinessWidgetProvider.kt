@@ -17,6 +17,8 @@ class PulseReadinessWidgetProvider : HomeWidgetProvider() {
                 setProgressBar(R.id.readiness_progress, 100, scoreVal, false)
                 setTextViewText(R.id.widget_readiness_energy, "Energy: $energy%")
 
+                WidgetThemeHelper.setOnClickLaunchApp(context, this, widgetId)
+
                 WidgetThemeHelper.applyTheme(
                     context, this, widgetData,
                     R.drawable.widget_bg_accent,

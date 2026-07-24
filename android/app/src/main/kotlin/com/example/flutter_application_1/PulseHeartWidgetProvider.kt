@@ -18,6 +18,8 @@ class PulseHeartWidgetProvider : HomeWidgetProvider() {
                 setProgressBar(R.id.heart_progress, 120, rhrVal, false)
                 setTextViewText(R.id.widget_heart_hrv, "HRV: $hrv ms")
 
+                WidgetThemeHelper.setOnClickLaunchApp(context, this, widgetId)
+
                 WidgetThemeHelper.applyTheme(
                     context, this, widgetData,
                     R.drawable.widget_bg_heart,

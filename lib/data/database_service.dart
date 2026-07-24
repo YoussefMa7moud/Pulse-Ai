@@ -241,8 +241,11 @@ class DatabaseService {
     for (final s in sessions) {
       final json = s.toJson();
       json['user_id'] = userId;
-      final actId = json['activity_id']?.toString() ?? '';
-      if (actId.isEmpty) continue; // Skip entries with no activity_id
+      var actId = json['activity_id']?.toString().trim() ?? '';
+      if (actId.isEmpty || actId == 'null' || actId == 'undefined') {
+        actId = 'gen_${s.startTime?.millisecondsSinceEpoch ?? s.date.millisecondsSinceEpoch}_${s.endTime?.millisecondsSinceEpoch ?? 0}_${(s.workoutType ?? "workout").toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
+        json['activity_id'] = actId;
+      }
       dedupedMap['${userId}_$actId'] = json;
     }
     final list = dedupedMap.values.toList();

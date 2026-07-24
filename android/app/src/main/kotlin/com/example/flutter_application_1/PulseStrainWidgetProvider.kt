@@ -20,6 +20,8 @@ class PulseStrainWidgetProvider : HomeWidgetProvider() {
                 setProgressBar(R.id.strain_progress, 210, progressVal, false)
                 setTextViewText(R.id.widget_strain_calories, "$calories kcal")
 
+                WidgetThemeHelper.setOnClickLaunchApp(context, this, widgetId)
+
                 WidgetThemeHelper.applyTheme(
                     context, this, widgetData,
                     R.drawable.widget_bg_strain,

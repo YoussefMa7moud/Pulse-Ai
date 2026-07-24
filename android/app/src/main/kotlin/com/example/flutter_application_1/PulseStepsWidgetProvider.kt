@@ -18,6 +18,8 @@ class PulseStepsWidgetProvider : HomeWidgetProvider() {
                 setProgressBar(R.id.steps_progress, 10000, stepsVal, false)
                 setTextViewText(R.id.widget_steps_distance, "$distance km")
 
+                WidgetThemeHelper.setOnClickLaunchApp(context, this, widgetId)
+
                 WidgetThemeHelper.applyTheme(
                     context, this, widgetData,
                     R.drawable.widget_bg_activity,

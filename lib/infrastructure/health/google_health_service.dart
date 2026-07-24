@@ -93,23 +93,28 @@ class GoogleHealthService implements HealthRepository {
         chunkEnd = rangeEnd;
       }
 
-      for (final type in _dataTypes) {
-        try {
-          final rawData = await _health.getHealthDataFromTypes(
-            types: [type],
-            startTime: chunkStart,
-            endTime: chunkEnd,
-          );
-          final seen = <String>{};
-          final data = rawData.where((p) {
-            final key = '${p.uuid}_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}';
-            return seen.add(key);
-          }).toList();
+      // Batch fetch data types in parallel groups of 5 to avoid IPC lock and reduce wait time
+      const int batchSize = 5;
+      for (int i = 0; i < _dataTypes.length; i += batchSize) {
+        final batch = _dataTypes.sublist(i, i + batchSize > _dataTypes.length ? _dataTypes.length : i + batchSize);
+        await Future.wait(batch.map((type) async {
+          try {
+            final rawData = await _health.getHealthDataFromTypes(
+              types: [type],
+              startTime: chunkStart,
+              endTime: chunkEnd,
+            );
+            final seen = <String>{};
+            final data = rawData.where((p) {
+              final key = '${p.uuid}_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}';
+              return seen.add(key);
+            }).toList();
 
-          typeDataMap[type]!.addAll(data);
-        } catch (e) {
-          debugPrint('[PIPELINE] Error chunk fetching $type ($chunkStart → $chunkEnd): $e');
-        }
+            typeDataMap[type]!.addAll(data);
+          } catch (e) {
+            debugPrint('[PIPELINE] Error chunk fetching $type ($chunkStart → $chunkEnd): $e');
+          }
+        }));
       }
 
       chunkStart = chunkEnd.add(const Duration(milliseconds: 1));
@@ -325,6 +330,8 @@ class GoogleHealthService implements HealthRepository {
 
       results.add(metric);
       current = current.add(const Duration(days: 1));
+      // Yield to main isolate event loop so loading animations continue smoothly without freezing UI
+      await Future.delayed(Duration.zero);
     }
 
     debugPrint('┌─────────────────────────────────────────────────────────────');
@@ -357,13 +364,9 @@ class GoogleHealthService implements HealthRepository {
       
       final seen = <String>{};
       final healthData = rawData.where((p) {
-        final dynamicUuid = (p.uuid as dynamic);
-        final uuidStr = (dynamicUuid == null || dynamicUuid.toString().isEmpty) 
-            ? 'gen_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}' 
-            : dynamicUuid.toString();
+        final uuidStr = _buildSafeUuid(p, 'workout');
         final key = '${uuidStr}_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}';
-        final isNew = seen.add(key);
-        return isNew;
+        return seen.add(key);
       }).toList();
       
       final dayStrLocal = DateFormat('yyyy-MM-dd').format(day.toLocal());
@@ -400,10 +403,7 @@ class GoogleHealthService implements HealthRepository {
         final pointLocal = point.dateFrom.toLocal();
         final workoutDate = DateTime(pointLocal.year, pointLocal.month, pointLocal.day);
 
-        final dynamicUuid = (point.uuid as dynamic);
-        final safeUuid = (dynamicUuid == null || dynamicUuid.toString().isEmpty) 
-            ? 'gen_${point.dateFrom.millisecondsSinceEpoch}_${point.dateTo.millisecondsSinceEpoch}' 
-            : dynamicUuid.toString();
+        final safeUuid = _buildSafeUuid(point, workoutTypeName);
 
         final workout = WorkoutSession(
           date: workoutDate,
@@ -774,6 +774,16 @@ class GoogleHealthService implements HealthRepository {
     return words.join(' ');
   }
 
+  String _buildSafeUuid(HealthDataPoint point, String workoutType) {
+    final dynamicUuid = (point.uuid as dynamic);
+    final uuidStr = dynamicUuid?.toString().trim() ?? '';
+    if (uuidStr.isNotEmpty && uuidStr != 'null' && uuidStr != 'undefined') {
+      return uuidStr;
+    }
+    final typeSlug = workoutType.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+    return 'gen_${point.dateFrom.millisecondsSinceEpoch}_${point.dateTo.millisecondsSinceEpoch}_$typeSlug';
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // BULK WORKOUT FETCH — single Health Connect call for entire range
   // ─────────────────────────────────────────────────────────────────────────
@@ -790,7 +800,6 @@ class GoogleHealthService implements HealthRepository {
     debugPrint('│ span       = ${queryEnd.difference(queryStart).inDays} days');
     debugPrint('└─────────────────────────────────────────────────────────────');
 
-    // 1. Log permission status
     try {
       final hasPerms = await hasPermissions();
       debugPrint('[PIPELINE] Permission status: $hasPerms');
@@ -799,62 +808,31 @@ class GoogleHealthService implements HealthRepository {
     }
 
     try {
-      final List<HealthDataPoint> rawData = [];
-
-      // Chunk workout queries into safe 30-day windows to prevent Health Connect IPC parcel overflow
-      const int chunkDays = 30;
-      DateTime chunkStart = queryStart;
-
-      while (!chunkStart.isAfter(queryEnd)) {
-        DateTime chunkEnd = chunkStart.add(const Duration(days: chunkDays));
-        if (chunkEnd.isAfter(queryEnd)) {
-          chunkEnd = queryEnd;
-        }
-
-        try {
-          final chunkData = await _health.getHealthDataFromTypes(
-            types: [HealthDataType.WORKOUT],
-            startTime: chunkStart,
-            endTime: chunkEnd,
-          );
-          rawData.addAll(chunkData);
-        } catch (e) {
-          debugPrint('[PIPELINE] Error chunk fetching workouts ($chunkStart → $chunkEnd): $e');
-        }
-
-        chunkStart = chunkEnd.add(const Duration(milliseconds: 1));
-      }
+      // Query entire range in a single call to avoid splitting today's workouts across midnight chunk boundaries
+      final List<HealthDataPoint> rawData = await _health.getHealthDataFromTypes(
+        types: [HealthDataType.WORKOUT],
+        startTime: queryStart,
+        endTime: queryEnd,
+      );
 
       debugPrint('[PIPELINE] Raw WORKOUT data points returned: ${rawData.length}');
 
-
       if (rawData.isEmpty) {
-        debugPrint('[PIPELINE] ⚠ Health Connect returned ZERO workout records for the entire range.');
-        debugPrint('[PIPELINE] Possible causes:');
-        debugPrint('[PIPELINE]   - No WORKOUT permission granted');
-        debugPrint('[PIPELINE]   - No READ_HEALTH_DATA_HISTORY permission');
-        debugPrint('[PIPELINE]   - Health Connect has no workout data');
-        debugPrint('[PIPELINE]   - The health plugin version does not support historical reads');
+        debugPrint('[PIPELINE] ⚠ Health Connect returned ZERO workout records for range $queryStart → $queryEnd');
         return [];
       }
 
-      // Mapped and deduplicated next
-
-
-      // 4. Deduplicate by uuid + time range
+      // Deduplicate by uuid + time range
       final seen = <String>{};
       final healthData = rawData.where((p) {
-        final dynamicUuid = (p.uuid as dynamic);
-        final uuidStr = (dynamicUuid == null || dynamicUuid.toString().isEmpty)
-            ? 'gen_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}'
-            : dynamicUuid.toString();
+        final uuidStr = _buildSafeUuid(p, 'workout');
         final key = '${uuidStr}_${p.dateFrom.millisecondsSinceEpoch}_${p.dateTo.millisecondsSinceEpoch}';
         return seen.add(key);
       }).toList();
 
-      debugPrint('[PIPELINE] After dedup: ${healthData.length} unique workout points (removed ${rawData.length - healthData.length} dupes)');
+      debugPrint('[PIPELINE] After dedup: ${healthData.length} unique workout points');
 
-      // 5. Map to WorkoutSession objects
+      // Map to WorkoutSession objects
       final List<WorkoutSession> sessions = [];
       for (int i = 0; i < healthData.length; i++) {
         final point = healthData[i];
@@ -878,11 +856,7 @@ class GoogleHealthService implements HealthRepository {
         final pointLocal = point.dateFrom.toLocal();
         final workoutDate = DateTime(pointLocal.year, pointLocal.month, pointLocal.day);
 
-        final dynamicUuid = (point.uuid as dynamic);
-        final safeUuid = (dynamicUuid == null || dynamicUuid.toString().isEmpty)
-            ? 'gen_${point.dateFrom.millisecondsSinceEpoch}_${point.dateTo.millisecondsSinceEpoch}'
-            : dynamicUuid.toString();
-
+        final safeUuid = _buildSafeUuid(point, workoutTypeName);
         final durationSecs = point.dateTo.difference(point.dateFrom).inSeconds;
 
         final workout = WorkoutSession(
@@ -896,10 +870,6 @@ class GoogleHealthService implements HealthRepository {
           ..activityId = safeUuid
           ..distanceMeters = distance;
 
-        debugPrint('[PIPELINE] Mapped[$i]: activityId=$safeUuid, date=$workoutDate, '
-            'type=$workoutTypeName, duration=${durationSecs}s, '
-            'calories=$calories, start=${point.dateFrom}, end=${point.dateTo}');
-
         sessions.add(workout);
       }
 
@@ -908,8 +878,7 @@ class GoogleHealthService implements HealthRepository {
       final uniqueSessions = sessions.where((s) => seenActivityIds.add(s.activityId ?? '')).toList();
 
       debugPrint('┌─────────────────────────────────────────────────────────────');
-      debugPrint('│ [PIPELINE] fetchWorkoutsInRange COMPLETE');
-      debugPrint('│ Total sessions mapped: ${sessions.length} (unique: ${uniqueSessions.length})');
+      debugPrint('│ [PIPELINE] fetchWorkoutsInRange COMPLETE — ${uniqueSessions.length} sessions');
       debugPrint('└─────────────────────────────────────────────────────────────');
 
       return uniqueSessions;

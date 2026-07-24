@@ -106,17 +106,22 @@ class _PulseAppState extends ConsumerState<PulseApp>
     }
   }
 
-  /// On startup: run full historical sync if first time, otherwise 30 days.
+  /// On startup: run 14-day historical sync if first time, otherwise fast 2-day recent sync.
   Future<void> _triggerSync() async {
-    // Check if this is the first sync by looking at the user profile
     final dbService = ref.read(databaseProvider);
     final profile = await dbService.getUserProfile();
     final isFirstSync = profile.lastSyncDate == null;
-    final daysBack = isFirstSync ? 365 : 30;
 
-    debugPrint('[PIPELINE][MAIN] _triggerSync: isFirstSync=$isFirstSync, daysBack=$daysBack');
-    final result = await widget.syncUseCase.syncAll(daysBack: daysBack);
-    debugPrint('[PIPELINE][MAIN] _triggerSync complete: success=${result.success}, '
+    final SyncResult result;
+    if (isFirstSync) {
+      debugPrint('[PIPELINE][MAIN] First launch: syncing 14 days of history to Supabase...');
+      result = await widget.syncUseCase.syncAll(daysBack: 14);
+    } else {
+      debugPrint('[PIPELINE][MAIN] Routine launch: fast sync for recent 2 days...');
+      result = await widget.syncUseCase.syncRecent(daysBack: 2);
+    }
+
+    debugPrint('[PIPELINE][MAIN] Startup sync complete: success=${result.success}, '
         'days=${result.daysImported}, workouts=${result.workoutsImported}');
     if (!mounted) return;
     if (result.success) {
